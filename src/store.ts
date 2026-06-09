@@ -353,14 +353,16 @@ export const useStore = create<AppState>((set, get) => ({
     get().showToast('Schedule Sent to ESP32');
   },
 
-  // Fan speed control (0-100%)
   setFanSpeed: (speed) => {
-    const clamped = Math.max(0, Math.min(100, speed));
-    set({ fanSpeed: clamped });
-    localStorage.setItem('reef_fan_speed', String(clamped));
+    let finalSpeed = Math.max(0, Math.min(100, speed));
+    if (finalSpeed > 0 && finalSpeed < 25) {
+      finalSpeed = finalSpeed >= 12 ? 25 : 0;
+    }
+    set({ fanSpeed: finalSpeed });
+    localStorage.setItem('reef_fan_speed', String(finalSpeed));
     get().mqttClient?.publish(TOPIC_CMD, JSON.stringify({
       cmd_type: 'fan',
-      speed: clamped,
+      speed: finalSpeed,
     }));
   },
 

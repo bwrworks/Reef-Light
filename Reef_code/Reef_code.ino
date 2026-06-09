@@ -458,6 +458,9 @@ void handleMqttMessage(char* topic, byte* payload, unsigned int length) {
   } else if (type == "fan") {
     if (doc["speed"].is<int>()) {
       int spd = constrain(doc["speed"].as<int>(), 0, 100);
+      if (spd > 0 && spd < 25) {
+        spd = 25; // operational minimum to prevent fan stalling/humming
+      }
       fanSpeed = (uint8_t)spd;
       applyFan();
       savePrefs();
