@@ -142,6 +142,9 @@ export function ScheduleEditor() {
     { name: 'Acclimate', sunriseHour: 8, sunriseMin: 0, sunsetHour: 20, sunsetMin: 0, rampMinutes: 120, peakUvRed: 15, peakBlue: 45, peakWhite: 20 }
   ];
 
+  // Calculate percentage values for slider tracks background styling
+  const rampPct = ((schedule.rampMinutes - 15) / (180 - 15)) * 100;
+
   return (
     <div className="flex flex-col gap-6 select-none text-left">
       
@@ -181,7 +184,7 @@ export function ScheduleEditor() {
       </div>
 
       {/* SVG Chart Container */}
-      <div className="bg-bg-card border border-border rounded-2xl p-4 shadow-lg relative overflow-hidden">
+      <div className="bg-[#0B0B0C] border border-border rounded-2xl p-4 shadow-lg relative overflow-hidden">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-text-primary uppercase tracking-widest">
             24H Cycle Graph
@@ -326,41 +329,43 @@ export function ScheduleEditor() {
       </div>
 
       {/* Settings Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3.5 items-stretch">
         {/* Sunrise Card */}
-        <div className="bg-[#0B0B0C] border border-border rounded-2xl p-4 flex flex-col justify-between min-h-[175px]">
+        <div className="bg-[#0B0B0C] border border-border rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[165px]">
           <div className="flex flex-col gap-2">
             <span className="text-[10px] text-accent-uv font-bold uppercase tracking-widest block">
               Sunrise Settings
             </span>
             <div className="flex flex-col gap-1.5 text-left mt-1">
-              <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Start Time</span>
-              <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider">Start Time</span>
+              
+              {/* Centered compact iOS-style select capsule to prevent overflow */}
+              <div className="flex items-center justify-center gap-0.5 bg-[#121214] border border-[#1C1C1E] rounded-xl py-1 px-1.5 h-9 w-full max-w-[105px]">
                 {/* Hour */}
                 <select
                   value={srParts.h12}
                   onChange={(e) => handleTimeChange('sunrise', parseInt(e.target.value), srParts.min, srParts.period as 'AM' | 'PM')}
-                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
+                  className="bg-transparent text-xs text-text-primary outline-none cursor-pointer text-center font-bold w-7 px-0 appearance-none"
                 >
-                  {hoursOptions.map(h => <option key={h} value={h}>{h}</option>)}
+                  {hoursOptions.map(h => <option key={h} className="bg-[#0B0B0C]" value={h}>{h}</option>)}
                 </select>
-                <span className="text-text-secondary font-bold">:</span>
+                <span className="text-text-secondary font-bold select-none">:</span>
                 {/* Min */}
                 <select
                   value={srParts.min}
                   onChange={(e) => handleTimeChange('sunrise', srParts.h12, parseInt(e.target.value), srParts.period as 'AM' | 'PM')}
-                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
+                  className="bg-transparent text-xs text-text-primary outline-none cursor-pointer text-center font-bold w-7 px-0 appearance-none"
                 >
-                  {minutesOptions.map(m => <option key={m} value={m}>{m < 10 ? `0${m}` : m}</option>)}
+                  {minutesOptions.map(m => <option key={m} className="bg-[#0B0B0C]" value={m}>{m < 10 ? `0${m}` : m}</option>)}
                 </select>
                 {/* Period */}
                 <select
                   value={srParts.period}
                   onChange={(e) => handleTimeChange('sunrise', srParts.h12, srParts.min, e.target.value as 'AM' | 'PM')}
-                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
+                  className="bg-transparent text-[10px] text-accent-uv outline-none cursor-pointer text-center font-black w-7 px-0 appearance-none"
                 >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
+                  <option value="AM" className="bg-[#0B0B0C]">AM</option>
+                  <option value="PM" className="bg-[#0B0B0C]">PM</option>
                 </select>
               </div>
             </div>
@@ -380,7 +385,7 @@ export function ScheduleEditor() {
               onChange={(e) => updateSchedule({ rampMinutes: parseInt(e.target.value) })}
               className="w-full cursor-pointer"
               style={{
-                background: 'linear-gradient(to right, #8B5CF6, #c084fc)',
+                background: `linear-gradient(to right, #8B5CF6 0%, #8B5CF6 ${rampPct}%, #1C1C1E ${rampPct}%, #1C1C1E 100%)`,
                 height: '6px',
                 borderRadius: '9999px',
               }}
@@ -389,39 +394,41 @@ export function ScheduleEditor() {
         </div>
 
         {/* Sunset Card */}
-        <div className="bg-[#0B0B0C] border border-border rounded-2xl p-4 flex flex-col justify-between min-h-[175px]">
+        <div className="bg-[#0B0B0C] border border-border rounded-2xl p-3 sm:p-4 flex flex-col justify-between min-h-[165px]">
           <div className="flex flex-col gap-2">
             <span className="text-[10px] text-accent-uv font-bold uppercase tracking-widest block">
               Sunset Settings
             </span>
             <div className="flex flex-col gap-1.5 text-left mt-1">
-              <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Start Time</span>
-              <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider">Start Time</span>
+              
+              {/* Centered compact iOS-style select capsule to prevent overflow */}
+              <div className="flex items-center justify-center gap-0.5 bg-[#121214] border border-[#1C1C1E] rounded-xl py-1 px-1.5 h-9 w-full max-w-[105px]">
                 {/* Hour */}
                 <select
                   value={ssParts.h12}
                   onChange={(e) => handleTimeChange('sunset', parseInt(e.target.value), ssParts.min, ssParts.period as 'AM' | 'PM')}
-                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
+                  className="bg-transparent text-xs text-text-primary outline-none cursor-pointer text-center font-bold w-7 px-0 appearance-none"
                 >
-                  {hoursOptions.map(h => <option key={h} value={h}>{h}</option>)}
+                  {hoursOptions.map(h => <option key={h} className="bg-[#0B0B0C]" value={h}>{h}</option>)}
                 </select>
-                <span className="text-text-secondary font-bold">:</span>
+                <span className="text-text-secondary font-bold select-none">:</span>
                 {/* Min */}
                 <select
                   value={ssParts.min}
                   onChange={(e) => handleTimeChange('sunset', ssParts.h12, parseInt(e.target.value), ssParts.period as 'AM' | 'PM')}
-                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
+                  className="bg-transparent text-xs text-text-primary outline-none cursor-pointer text-center font-bold w-7 px-0 appearance-none"
                 >
-                  {minutesOptions.map(m => <option key={m} value={m}>{m < 10 ? `0${m}` : m}</option>)}
+                  {minutesOptions.map(m => <option key={m} className="bg-[#0B0B0C]" value={m}>{m < 10 ? `0${m}` : m}</option>)}
                 </select>
                 {/* Period */}
                 <select
                   value={ssParts.period}
                   onChange={(e) => handleTimeChange('sunset', ssParts.h12, ssParts.min, e.target.value as 'AM' | 'PM')}
-                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
+                  className="bg-transparent text-[10px] text-accent-uv outline-none cursor-pointer text-center font-black w-7 px-0 appearance-none"
                 >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
+                  <option value="AM" className="bg-[#0B0B0C]">AM</option>
+                  <option value="PM" className="bg-[#0B0B0C]">PM</option>
                 </select>
               </div>
             </div>
@@ -432,16 +439,16 @@ export function ScheduleEditor() {
               <span>Sunset Ramp Time</span>
               <span className="text-text-primary font-mono">{schedule.rampMinutes} mins</span>
             </div>
-            <div className="text-[9px] text-text-secondary italic flex items-center gap-1.5 bg-[#121214] p-2 rounded-xl border border-border/40 leading-snug">
-              <AlertCircle size={10} className="text-text-secondary flex-shrink-0" />
-              <span>Sunset ramp mirrors sunrise duration.</span>
+            <div className="text-[8px] text-text-secondary italic flex items-center gap-1 bg-[#121214] p-1.5 rounded-xl border border-border/40 leading-snug">
+              <AlertCircle size={9} className="text-text-secondary flex-shrink-0" />
+              <span>Sunset mirrors sunrise duration.</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Peak Intensities Settings */}
-      <div className="bg-bg-card border border-border rounded-xl p-5">
+      <div className="bg-[#0B0B0C] border border-border rounded-xl p-5">
         <span className="text-[10px] text-text-primary font-bold uppercase tracking-widest block mb-4">
           Peak Schedule Intensities
         </span>
@@ -463,7 +470,7 @@ export function ScheduleEditor() {
               onChange={(e) => updateSchedule({ peakUvRed: parseInt(e.target.value) })}
               className="w-full cursor-pointer"
               style={{
-                background: 'linear-gradient(to right, #EC4899, #f472b6)',
+                background: `linear-gradient(to right, #8B5CF6 0%, #8B5CF6 ${schedule.peakUvRed}%, #1C1C1E ${schedule.peakUvRed}%, #1C1C1E 100%)`,
                 height: '6px',
                 borderRadius: '9999px',
               }}
@@ -487,7 +494,7 @@ export function ScheduleEditor() {
               onChange={(e) => updateSchedule({ peakBlue: parseInt(e.target.value) })}
               className="w-full cursor-pointer"
               style={{
-                background: 'linear-gradient(to right, #8B5CF6, #a78bfa)',
+                background: `linear-gradient(to right, #8B5CF6 0%, #8B5CF6 ${schedule.peakBlue}%, #1C1C1E ${schedule.peakBlue}%, #1C1C1E 100%)`,
                 height: '6px',
                 borderRadius: '9999px',
               }}
@@ -511,7 +518,7 @@ export function ScheduleEditor() {
               onChange={(e) => updateSchedule({ peakWhite: parseInt(e.target.value) })}
               className="w-full cursor-pointer"
               style={{
-                background: 'linear-gradient(to right, #E5E7EB, #F3F4F6)',
+                background: `linear-gradient(to right, #8B5CF6 0%, #8B5CF6 ${schedule.peakWhite}%, #1C1C1E ${schedule.peakWhite}%, #1C1C1E 100%)`,
                 height: '6px',
                 borderRadius: '9999px',
               }}

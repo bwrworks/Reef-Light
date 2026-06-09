@@ -91,7 +91,7 @@ export const useStore = create<AppState>((set, get) => ({
   kelvin: 12000,
   power: true,
   sysLogs: [],
-  schedule: {
+  schedule: JSON.parse(localStorage.getItem('reef_schedule') || JSON.stringify({
     enabled: true,
     sunriseHour: 7,
     sunriseMin: 0,
@@ -101,7 +101,7 @@ export const useStore = create<AppState>((set, get) => ({
     peakBlue: 85,
     peakWhite: 40,
     peakUvRed: 25,
-  },
+  })),
   toastMessage: null,
   
   widgets: JSON.parse(localStorage.getItem('reef_widgets') || '{"ammonia": true, "nitrate": true, "salinity": false, "alkalinity": false, "calcium": false, "magnesium": false}'),
@@ -149,17 +149,23 @@ export const useStore = create<AppState>((set, get) => ({
                 blueB: data.blueB ?? state.channels.blueB,
                 white: data.white ?? state.channels.white,
               },
-              schedule: data.schedule ? {
-                enabled: data.schedule.enabled ?? state.schedule.enabled,
-                sunriseHour: data.schedule.sunriseHour ?? state.schedule.sunriseHour,
-                sunriseMin: data.schedule.sunriseMin ?? state.schedule.sunriseMin,
-                sunsetHour: data.schedule.sunsetHour ?? state.schedule.sunsetHour,
-                sunsetMin: data.schedule.sunsetMin ?? state.schedule.sunsetMin,
-                rampMinutes: data.schedule.rampMinutes ?? state.schedule.rampMinutes,
-                peakBlue: data.schedule.peakBlue ?? state.schedule.peakBlue,
-                peakWhite: data.schedule.peakWhite ?? state.schedule.peakWhite,
-                peakUvRed: data.schedule.peakUvRed ?? state.schedule.peakUvRed,
-              } : state.schedule
+              schedule: (() => {
+                const nextSched = data.schedule ? {
+                  enabled: data.schedule.enabled ?? state.schedule.enabled,
+                  sunriseHour: data.schedule.sunriseHour ?? state.schedule.sunriseHour,
+                  sunriseMin: data.schedule.sunriseMin ?? state.schedule.sunriseMin,
+                  sunsetHour: data.schedule.sunsetHour ?? state.schedule.sunsetHour,
+                  sunsetMin: data.schedule.sunsetMin ?? state.schedule.sunsetMin,
+                  rampMinutes: data.schedule.rampMinutes ?? state.schedule.rampMinutes,
+                  peakBlue: data.schedule.peakBlue ?? state.schedule.peakBlue,
+                  peakWhite: data.schedule.peakWhite ?? state.schedule.peakWhite,
+                  peakUvRed: data.schedule.peakUvRed ?? state.schedule.peakUvRed,
+                } : state.schedule;
+                if (data.schedule) {
+                  localStorage.setItem('reef_schedule', JSON.stringify(nextSched));
+                }
+                return nextSched;
+              })()
             };
           });
         } catch (e) {
@@ -262,12 +268,14 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updateSchedule: (sched) => {
-    set((state) => ({
-      schedule: {
+    set((state) => {
+      const next = {
         ...state.schedule,
         ...sched
-      }
-    }));
+      };
+      localStorage.setItem('reef_schedule', JSON.stringify(next));
+      return { schedule: next };
+    });
   },
 
   saveSchedule: () => {
