@@ -119,6 +119,7 @@ Schedule schedule;
 
 bool     globalPower    = true;
 bool     manualOverride = false;
+uint8_t  fanSpeed       = 100;  // 0-100% (user-controlled), default full speed
 uint32_t lastWifiCheck  = 0;
 bool     timesynced     = false;
 
@@ -137,6 +138,13 @@ void applyChannels() {
   ledcWrite(PIN_BLUE_A, 255 - current.blueA);
   ledcWrite(PIN_BLUE_B, 255 - current.blueB);
   ledcWrite(PIN_WHITE,  255 - current.white);
+}
+
+// Set fan PWM from 0-100% (active-low: 0%=off, 100%=full speed)
+void applyFan() {
+  // User speed 0% → PWM 255 (active-low = off)
+  // User speed 100% → PWM 0 (active-low = full on)
+  ledcWrite(PIN_FAN, 255 - (fanSpeed * 255 / 100));
 }
 
 void allOff() {
@@ -161,6 +169,7 @@ void savePrefs() {
   prefs.putUChar("peakWhite",   schedule.peakWhite);
   prefs.putUChar("peakUvRed",   schedule.peakUvRed);
   prefs.putBool("power",        globalPower);
+  prefs.putUChar("fanSpeed",    fanSpeed);
   prefs.end();
 }
 
@@ -176,6 +185,7 @@ void loadPrefs() {
   schedule.peakWhite   = prefs.getUChar("peakWhite",   40);
   schedule.peakUvRed   = prefs.getUChar("peakUvRed",   25);
   globalPower          = prefs.getBool("power",        true);
+  fanSpeed             = prefs.getUChar("fanSpeed",     100);
   prefs.end();
 }
 
@@ -281,6 +291,7 @@ String buildStateJson() {
   json += "\"white\":"  + String(current.white)  + ",";
   json += "\"power\":"  + String(globalPower ? "true" : "false") + ",";
   json += "\"manual\":" + String(manualOverride ? "true" : "false") + ",";
+  json += "\"fanSpeed\":" + String(fanSpeed) + ",";";
   json += "\"time\":\"" + String(timeBuf) + "\",";
   json += "\"uptime\":"  + String(millis() / 1000) + ",";
   json += "\"wifi\":"   + String(WiFi.status() == WL_CONNECTED ? "true" : "false") + ",";
@@ -442,6 +453,17 @@ void handleMqttMessage(char* topic, byte* payload, unsigned int length) {
       publishState();
     }
 
+  // ── fan: Set fan speed 0-100%, saved to NVS
+  } else if (type == "fan") {
+    if (doc["speed"].is<int>()) {
+      int spd = constrain(doc["speed"].as<int>(), 0, 100);
+      fanSpeed = (uint8_t)spd;
+      applyFan();
+      savePrefs();
+      addLog("Fan " + String(fanSpeed) + "%");
+      publishState();
+    }
+
   // ── get_state: Immediately publish full current state to UI
   } else if (type == "get_state") {
     publishState();
@@ -480,10 +502,9 @@ void setup() {
   ledcAttach(PIN_BLUE_B, PWM_FREQ, PWM_RES);
   ledcAttach(PIN_WHITE,  PWM_FREQ, PWM_RES);
   ledcAttach(PIN_FAN,    PWM_FREQ, PWM_RES);
-  ledcWrite(PIN_FAN, 0);  // Active-low: 0 = full on (fan always running)
-
   allOff();
   loadPrefs();
+  applyFan();  // apply saved fan speed on boot
   connectWifi();
 
   // Set MQTT buffer to 1024 bytes to safely handle large state JSON payloads

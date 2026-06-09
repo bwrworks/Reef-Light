@@ -38,20 +38,20 @@ function ChannelSlider({ id, name, subName, colorClass, icon, disabled }: Channe
     )}>
       {/* Slider header */}
       <div className="flex justify-between items-center mb-3">
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {/* Circular color icon */}
           <div className={clsx(
-            "w-9 h-9 rounded-full flex items-center justify-center border border-border shadow-inner text-text-primary",
+            "w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center border border-border shadow-inner text-text-primary",
             colorClass
           )}>
             {icon}
           </div>
-          <div>
-            <div className="font-display font-bold text-xs text-text-primary uppercase tracking-wider">{name}</div>
-            <div className="font-mono text-[9px] uppercase tracking-widest text-text-secondary mt-0.5">{subName}</div>
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="font-display font-bold text-[10px] text-text-primary uppercase tracking-wider whitespace-nowrap overflow-hidden text-ellipsis">{name}</div>
+            <div className="font-mono text-[8px] uppercase tracking-widest text-text-secondary mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{subName}</div>
           </div>
         </div>
-        <div className="font-mono text-lg font-black text-text-primary">{pct}%</div>
+        <div className="font-mono text-base font-black text-text-primary w-12 text-right flex-shrink-0">{pct}%</div>
       </div>
 
       {/* Slider input */}

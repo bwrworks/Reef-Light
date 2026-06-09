@@ -9,6 +9,8 @@ const TOPIC_CMD = 'creatorsreef/cmd/cr-849a2bf1-9c32-4d51-a719-21b9a8f4d91e';
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 type AppMode = 'auto' | 'manual' | 'kelvin';
 
+export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
 export interface ChannelState {
   uvRed: number;
   blueA: number;
@@ -35,6 +37,33 @@ export interface ScheduleState {
   peakUvRed: number;
 }
 
+export const DEFAULT_SCHEDULE: ScheduleState = {
+  enabled: true,
+  sunriseHour: 7,
+  sunriseMin: 0,
+  sunsetHour: 20,
+  sunsetMin: 0,
+  rampMinutes: 60,
+  peakBlue: 85,
+  peakWhite: 40,
+  peakUvRed: 25,
+};
+
+// Helper: get today's 0-indexed day (0=Mon..6=Sun)
+const getTodayIndex = () => {
+  const day = new Date().getDay(); // 0=Sun, 1=Mon..6=Sat
+  return day === 0 ? 6 : day - 1;  // convert to Mon-based index
+};
+
+// Initialize 7-day schedule
+const initWeekDays = (): ScheduleState[] => {
+  try {
+    const stored = localStorage.getItem('reef_week_days');
+    if (stored) return JSON.parse(stored);
+  } catch {/* ignore */}
+  return Array(7).fill(null).map(() => ({ ...DEFAULT_SCHEDULE }));
+};
+
 interface AppState {
   status: ConnectionStatus;
   mode: AppMode;
@@ -43,10 +72,13 @@ interface AppState {
   kelvin: number;
   power: boolean;
   sysLogs: string[];
-  schedule: ScheduleState;
+  schedule: ScheduleState;        // current editing day's schedule
+  editingDayIndex: number;        // 0=Mon..6=Sun, which day is currently shown in editor
+  weekDays: ScheduleState[];      // per-day schedules (7 entries, Mon-Sun)
+  fanSpeed: number;               // 0-100%, 0 = off, 100 = full speed
   toastMessage: string | null;
   
-  widgets: Record<string, boolean>; // active widgets
+  widgets: Record<string, boolean>;
   widgetData: Record<string, WidgetData[]>;
   customScenes: CustomScene[];
 
@@ -59,10 +91,13 @@ interface AppState {
   addWidgetData: (id: string, value: string, unit: string) => void;
   updateSchedule: (sched: Partial<ScheduleState>) => void;
   saveSchedule: () => void;
+  setEditingDay: (dayIndex: number) => void;
+  copyToAllDays: () => void;
   togglePower: () => void;
   showToast: (msg: string) => void;
   saveCustomScene: (name: string) => void;
   deleteCustomScene: (id: string) => void;
+  setFanSpeed: (speed: number) => void;
 }
 
 export interface CustomScene {
@@ -76,6 +111,8 @@ export interface CustomScene {
   };
 }
 
+const storedWeekDays = initWeekDays();
+const storedEditingDay = getTodayIndex();
 
 export const useStore = create<AppState>((set, get) => ({
   status: 'disconnected',
@@ -91,17 +128,10 @@ export const useStore = create<AppState>((set, get) => ({
   kelvin: 12000,
   power: true,
   sysLogs: [],
-  schedule: JSON.parse(localStorage.getItem('reef_schedule') || JSON.stringify({
-    enabled: true,
-    sunriseHour: 7,
-    sunriseMin: 0,
-    sunsetHour: 20,
-    sunsetMin: 0,
-    rampMinutes: 60,
-    peakBlue: 85,
-    peakWhite: 40,
-    peakUvRed: 25,
-  })),
+  editingDayIndex: storedEditingDay,
+  weekDays: storedWeekDays,
+  schedule: storedWeekDays[storedEditingDay] ?? { ...DEFAULT_SCHEDULE },
+  fanSpeed: parseInt(localStorage.getItem('reef_fan_speed') || '0'),
   toastMessage: null,
   
   widgets: JSON.parse(localStorage.getItem('reef_widgets') || '{"ammonia": true, "nitrate": true, "salinity": false, "alkalinity": false, "calcium": false, "magnesium": false}'),
@@ -125,7 +155,6 @@ export const useStore = create<AppState>((set, get) => ({
     client.on('connect', () => {
       set({ status: 'connected', mqttClient: client });
       client.subscribe(TOPIC_STATUS);
-      // Request initial state
       client.publish(TOPIC_CMD, JSON.stringify({ cmd_type: 'get_state' }));
       get().showToast('Connected to MQTT Broker');
     });
@@ -138,10 +167,38 @@ export const useStore = create<AppState>((set, get) => ({
           set((state) => {
             const nextMode: AppMode = data.manual ? 'manual' : (state.mode === 'kelvin' ? 'kelvin' : 'auto');
             
+            // Update week days if ESP32 returned a schedule
+            let nextWeekDays = state.weekDays;
+            let nextSchedule = state.schedule;
+            if (data.schedule) {
+              const newSched: ScheduleState = {
+                enabled: data.schedule.enabled ?? state.schedule.enabled,
+                sunriseHour: data.schedule.sunriseHour ?? state.schedule.sunriseHour,
+                sunriseMin: data.schedule.sunriseMin ?? state.schedule.sunriseMin,
+                sunsetHour: data.schedule.sunsetHour ?? state.schedule.sunsetHour,
+                sunsetMin: data.schedule.sunsetMin ?? state.schedule.sunsetMin,
+                rampMinutes: data.schedule.rampMinutes ?? state.schedule.rampMinutes,
+                peakBlue: data.schedule.peakBlue ?? state.schedule.peakBlue,
+                peakWhite: data.schedule.peakWhite ?? state.schedule.peakWhite,
+                peakUvRed: data.schedule.peakUvRed ?? state.schedule.peakUvRed,
+              };
+              nextSchedule = newSched;
+              nextWeekDays = state.weekDays.map((d, i) =>
+                i === state.editingDayIndex ? newSched : d
+              );
+              localStorage.setItem('reef_week_days', JSON.stringify(nextWeekDays));
+            }
+
+            // Update fan speed if received
+            if (data.fanSpeed !== undefined) {
+              localStorage.setItem('reef_fan_speed', String(data.fanSpeed));
+            }
+
             return {
               power: data.power ?? state.power,
               mode: nextMode,
               sysLogs: data.logs ?? state.sysLogs,
+              fanSpeed: data.fanSpeed ?? state.fanSpeed,
               channels: {
                 ...state.channels,
                 uvRed: data.uvRed ?? state.channels.uvRed,
@@ -149,23 +206,8 @@ export const useStore = create<AppState>((set, get) => ({
                 blueB: data.blueB ?? state.channels.blueB,
                 white: data.white ?? state.channels.white,
               },
-              schedule: (() => {
-                const nextSched = data.schedule ? {
-                  enabled: data.schedule.enabled ?? state.schedule.enabled,
-                  sunriseHour: data.schedule.sunriseHour ?? state.schedule.sunriseHour,
-                  sunriseMin: data.schedule.sunriseMin ?? state.schedule.sunriseMin,
-                  sunsetHour: data.schedule.sunsetHour ?? state.schedule.sunsetHour,
-                  sunsetMin: data.schedule.sunsetMin ?? state.schedule.sunsetMin,
-                  rampMinutes: data.schedule.rampMinutes ?? state.schedule.rampMinutes,
-                  peakBlue: data.schedule.peakBlue ?? state.schedule.peakBlue,
-                  peakWhite: data.schedule.peakWhite ?? state.schedule.peakWhite,
-                  peakUvRed: data.schedule.peakUvRed ?? state.schedule.peakUvRed,
-                } : state.schedule;
-                if (data.schedule) {
-                  localStorage.setItem('reef_schedule', JSON.stringify(nextSched));
-                }
-                return nextSched;
-              })()
+              schedule: nextSchedule,
+              weekDays: nextWeekDays,
             };
           });
         } catch (e) {
@@ -192,7 +234,6 @@ export const useStore = create<AppState>((set, get) => ({
   updateChannel: (channel, value) => {
     const { channels, mqttClient, mode } = get();
     
-    // Automatically switch to manual if not in manual/kelvin
     if (mode === 'auto') {
       set({ mode: 'manual' });
       mqttClient?.publish(TOPIC_CMD, JSON.stringify({ cmd_type: 'manual' }));
@@ -232,8 +273,6 @@ export const useStore = create<AppState>((set, get) => ({
       get().mqttClient?.publish(TOPIC_CMD, JSON.stringify({ cmd_type: 'manual' }));
     }
     
-    // Mathematical scaling: kelvin runs 6500K to 20000K
-    // Higher temp is bluer, lower is whiter/warmer
     const t = Math.max(0, Math.min(1, (k - 6500) / 13500));
     const uvRed = Math.round(255 * (0.05 + (t * 0.35)));
     const blueA = Math.round(255 * (0.20 + (t * 0.75)));
@@ -267,17 +306,36 @@ export const useStore = create<AppState>((set, get) => ({
     get().showToast(nextPower ? 'Lights Turned ON' : 'Lights Turned OFF');
   },
 
+  // updateSchedule: updates both the flat `schedule` and the corresponding weekDay entry
   updateSchedule: (sched) => {
     set((state) => {
-      const next = {
-        ...state.schedule,
-        ...sched
-      };
-      localStorage.setItem('reef_schedule', JSON.stringify(next));
-      return { schedule: next };
+      const next: ScheduleState = { ...state.schedule, ...sched };
+      const nextWeekDays = state.weekDays.map((d, i) =>
+        i === state.editingDayIndex ? next : d
+      );
+      localStorage.setItem('reef_week_days', JSON.stringify(nextWeekDays));
+      return { schedule: next, weekDays: nextWeekDays };
     });
   },
 
+  // Switch which day is being edited in the ScheduleEditor
+  setEditingDay: (dayIndex) => {
+    const weekDays = get().weekDays;
+    const daySchedule = weekDays[dayIndex] ?? { ...DEFAULT_SCHEDULE };
+    localStorage.setItem('reef_editing_day', String(dayIndex));
+    set({ editingDayIndex: dayIndex, schedule: daySchedule });
+  },
+
+  // Copy the currently edited day's schedule to all 7 days
+  copyToAllDays: () => {
+    const { schedule, showToast } = get();
+    const nextWeekDays = Array(7).fill(null).map(() => ({ ...schedule }));
+    localStorage.setItem('reef_week_days', JSON.stringify(nextWeekDays));
+    set({ weekDays: nextWeekDays });
+    showToast('Schedule copied to all days');
+  },
+
+  // Send the schedule for a specific day to the ESP32 via MQTT
   saveSchedule: () => {
     const { schedule, mqttClient } = get();
     mqttClient?.publish(TOPIC_CMD, JSON.stringify({
@@ -292,7 +350,18 @@ export const useStore = create<AppState>((set, get) => ({
       peakWhite: schedule.peakWhite,
       peakUvRed: schedule.peakUvRed,
     }));
-    get().showToast('Schedule Uploaded to ESP32');
+    get().showToast('Schedule Sent to ESP32');
+  },
+
+  // Fan speed control (0-100%)
+  setFanSpeed: (speed) => {
+    const clamped = Math.max(0, Math.min(100, speed));
+    set({ fanSpeed: clamped });
+    localStorage.setItem('reef_fan_speed', String(clamped));
+    get().mqttClient?.publish(TOPIC_CMD, JSON.stringify({
+      cmd_type: 'fan',
+      speed: clamped,
+    }));
   },
 
   toggleWidget: (id) => {
@@ -337,4 +406,3 @@ export const useStore = create<AppState>((set, get) => ({
     get().showToast('Scene deleted');
   }
 }));
-
