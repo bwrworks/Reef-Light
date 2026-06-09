@@ -26,14 +26,14 @@ export function DeviceModal({ isOpen, onClose }: DeviceModalProps) {
       />
 
       {/* Main Container */}
-      <div className="w-full max-w-[430px] bg-bg-base border-t border-border rounded-t-[32px] z-10 flex flex-col h-[90vh] animate-slide-up relative shadow-2xl overflow-hidden">
+      <div className="w-full max-w-[430px] bg-[#000000] border-t border-border rounded-t-[32px] z-10 flex flex-col h-[90vh] animate-slide-up relative shadow-2xl overflow-hidden">
         {/* Drag Indicator handle */}
         <div className="w-12 h-1 bg-border/80 rounded-full mx-auto my-3 flex-shrink-0" />
 
         {/* Modal Header (Logo + Title + Status) */}
         <div className="px-5 pb-4 border-b border-border flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-bg-card border border-border flex items-center justify-center p-1.5 overflow-hidden">
+            <div className="w-9 h-9 rounded-full bg-[#0B0B0C] border border-border flex items-center justify-center p-1.5 overflow-hidden">
               <img 
                 src="/logo_transparent.png" 
                 alt="Logo" 
@@ -70,14 +70,14 @@ export function DeviceModal({ isOpen, onClose }: DeviceModalProps) {
           
           <button 
             onClick={onClose}
-            className="p-2 rounded-xl bg-bg-card border border-border text-text-secondary hover:text-text-primary hover:border-border transition-colors"
+            className="p-2 rounded-xl bg-[#0B0B0C] border border-border text-text-secondary hover:text-text-primary hover:border-border transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Modal Tabs (CONTROL / SCHEDULE) */}
-        <div className="flex border-b border-border/60 bg-bg-card flex-shrink-0">
+        <div className="flex border-b border-border/60 bg-[#0B0B0C] flex-shrink-0">
           <button
             onClick={() => setActiveTab('control')}
             className={clsx(

@@ -87,31 +87,17 @@ export function SPDChart({ isHome = false, onEditClick }: SPDChartProps) {
         <path d={areaD} fill="url(#specRainbow)" opacity="0.9" className="transition-all duration-300" />
 
         {/* Glowing stroke */}
+        {/* Clean white outline stroke for BRS style chart */}
         <path
           d={pathD}
           fill="none"
           stroke="#FFFFFF"
-          strokeWidth="2.5"
-          className="transition-all duration-300"
-          filter="url(#chartGlow)"
-        />
-        
-        {/* Yellow-gold outline stroke for SPS pop aesthetic */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke="#FCD34D"
           strokeWidth="1.5"
           className="transition-all duration-300"
         />
 
         {/* Chart Defs */}
         <defs>
-          {/* Glow Filter */}
-          <filter id="chartGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2.5" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
 
           {/* Rainbow Spectral Fill Gradient */}
           <linearGradient id="specRainbow" x1="0" y1="0" x2="1" y2="0">

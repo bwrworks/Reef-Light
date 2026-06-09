@@ -326,21 +326,21 @@ export function ScheduleEditor() {
       </div>
 
       {/* Settings Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
         {/* Sunrise Card */}
-        <div className="bg-bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
-          <span className="text-[10px] text-accent-uv font-bold uppercase tracking-widest block">
-            Sunrise Settings
-          </span>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-text-secondary">Start Time</span>
-              <div className="flex items-center gap-1">
+        <div className="bg-[#0B0B0C] border border-border rounded-2xl p-4 flex flex-col justify-between min-h-[175px]">
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] text-accent-uv font-bold uppercase tracking-widest block">
+              Sunrise Settings
+            </span>
+            <div className="flex flex-col gap-1.5 text-left mt-1">
+              <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Start Time</span>
+              <div className="flex items-center gap-1.5">
                 {/* Hour */}
                 <select
                   value={srParts.h12}
                   onChange={(e) => handleTimeChange('sunrise', parseInt(e.target.value), srParts.min, srParts.period as 'AM' | 'PM')}
-                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
+                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
                 >
                   {hoursOptions.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
@@ -349,7 +349,7 @@ export function ScheduleEditor() {
                 <select
                   value={srParts.min}
                   onChange={(e) => handleTimeChange('sunrise', srParts.h12, parseInt(e.target.value), srParts.period as 'AM' | 'PM')}
-                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
+                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
                 >
                   {minutesOptions.map(m => <option key={m} value={m}>{m < 10 ? `0${m}` : m}</option>)}
                 </select>
@@ -357,51 +357,51 @@ export function ScheduleEditor() {
                 <select
                   value={srParts.period}
                   onChange={(e) => handleTimeChange('sunrise', srParts.h12, srParts.min, e.target.value as 'AM' | 'PM')}
-                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
+                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
                 >
                   <option value="AM">AM</option>
                   <option value="PM">PM</option>
                 </select>
               </div>
             </div>
+          </div>
 
-            <div className="flex flex-col gap-1.5 mt-1">
-              <div className="flex justify-between text-xs text-text-secondary font-medium">
-                <span>Ramp Duration</span>
-                <span className="text-text-primary font-mono">{schedule.rampMinutes} mins</span>
-              </div>
-              <input
-                type="range"
-                min="15"
-                max="180"
-                step="15"
-                value={schedule.rampMinutes}
-                onChange={(e) => updateSchedule({ rampMinutes: parseInt(e.target.value) })}
-                className="w-full cursor-pointer"
-                style={{
-                  background: 'linear-gradient(to right, #8B5CF6, #c084fc)',
-                  height: '6px',
-                  borderRadius: '9999px',
-                }}
-              />
+          <div className="flex flex-col gap-1.5 mt-3">
+            <div className="flex justify-between text-xs text-text-secondary font-medium">
+              <span>Ramp Duration</span>
+              <span className="text-text-primary font-mono">{schedule.rampMinutes} mins</span>
             </div>
+            <input
+              type="range"
+              min="15"
+              max="180"
+              step="15"
+              value={schedule.rampMinutes}
+              onChange={(e) => updateSchedule({ rampMinutes: parseInt(e.target.value) })}
+              className="w-full cursor-pointer"
+              style={{
+                background: 'linear-gradient(to right, #8B5CF6, #c084fc)',
+                height: '6px',
+                borderRadius: '9999px',
+              }}
+            />
           </div>
         </div>
 
         {/* Sunset Card */}
-        <div className="bg-bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
-          <span className="text-[10px] text-accent-uv font-bold uppercase tracking-widest block">
-            Sunset Settings
-          </span>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-text-secondary">Start Time</span>
-              <div className="flex items-center gap-1">
+        <div className="bg-[#0B0B0C] border border-border rounded-2xl p-4 flex flex-col justify-between min-h-[175px]">
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] text-accent-uv font-bold uppercase tracking-widest block">
+              Sunset Settings
+            </span>
+            <div className="flex flex-col gap-1.5 text-left mt-1">
+              <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Start Time</span>
+              <div className="flex items-center gap-1.5">
                 {/* Hour */}
                 <select
                   value={ssParts.h12}
                   onChange={(e) => handleTimeChange('sunset', parseInt(e.target.value), ssParts.min, ssParts.period as 'AM' | 'PM')}
-                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
+                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
                 >
                   {hoursOptions.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
@@ -410,7 +410,7 @@ export function ScheduleEditor() {
                 <select
                   value={ssParts.min}
                   onChange={(e) => handleTimeChange('sunset', ssParts.h12, parseInt(e.target.value), ssParts.period as 'AM' | 'PM')}
-                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
+                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
                 >
                   {minutesOptions.map(m => <option key={m} value={m}>{m < 10 ? `0${m}` : m}</option>)}
                 </select>
@@ -418,20 +418,22 @@ export function ScheduleEditor() {
                 <select
                   value={ssParts.period}
                   onChange={(e) => handleTimeChange('sunset', ssParts.h12, ssParts.min, e.target.value as 'AM' | 'PM')}
-                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
+                  className="flex-1 bg-[#121214] border border-[#1C1C1E] rounded-xl px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer text-center font-semibold"
                 >
                   <option value="AM">AM</option>
                   <option value="PM">PM</option>
                 </select>
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center justify-between text-xs text-text-secondary mt-1">
+          <div className="flex flex-col gap-2 mt-3 justify-end">
+            <div className="flex items-center justify-between text-xs text-text-secondary">
               <span>Sunset Ramp Time</span>
               <span className="text-text-primary font-mono">{schedule.rampMinutes} mins</span>
             </div>
-            <div className="text-[10px] text-text-secondary italic flex items-center gap-1.5 bg-[#121214] p-2.5 rounded-xl border border-border/40">
-              <AlertCircle size={12} className="text-text-secondary flex-shrink-0" />
+            <div className="text-[9px] text-text-secondary italic flex items-center gap-1.5 bg-[#121214] p-2 rounded-xl border border-border/40 leading-snug">
+              <AlertCircle size={10} className="text-text-secondary flex-shrink-0" />
               <span>Sunset ramp mirrors sunrise duration.</span>
             </div>
           </div>

@@ -22,7 +22,7 @@
   }
 
   input[type="range"]::-webkit-slider-thumb {
-    @apply appearance-none w-5 h-5 rounded-full bg-white border border-gray-200 shadow-[0_0_8px_rgba(255,255,255,0.8)] -mt-[7px] transition-transform duration-150 hover:scale-110 active:scale-95;
+    @apply appearance-none w-5 h-5 rounded-full bg-white border border-[#1C1C1E] shadow-md -mt-[7px] transition-transform duration-150 hover:scale-105 active:scale-95;
   }
 
   /* Firefox Range Sliders */
@@ -31,7 +31,7 @@
   }
 
   input[type="range"]::-moz-range-thumb {
-    @apply w-5 h-5 rounded-full bg-white border border-gray-200 shadow-[0_0_8px_rgba(255,255,255,0.8)] transition-transform duration-150 hover:scale-110 active:scale-95;
+    @apply w-5 h-5 rounded-full bg-white border border-[#1C1C1E] shadow-md transition-transform duration-150 hover:scale-105 active:scale-95;
   }
 
   /* Webkit custom scrollbar for dashboard */
@@ -46,7 +46,7 @@
     background-image: url('/coral_banner.png');
     background-size: cover;
     background-position: center;
-    opacity: 0.12;
+    opacity: 0.05;
     position: absolute;
     inset: 0;
     pointer-events: none;
