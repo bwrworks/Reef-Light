@@ -94,7 +94,7 @@ const PARAMETER_DATABASE: Record<string, ParameterConfig> = {
     id: 'magnesium',
     name: 'Magnesium',
     unit: 'ppm',
-    color: '#8B5CF6',
+    color: '#A78BFA',
     min: 1000,
     max: 1600,
     optimalMin: 1300,
@@ -112,7 +112,7 @@ const AVAILABLE_WIDGETS = [
   { id: 'salinity', name: 'Salinity', unit: 'ppt', color: '#06B6D4' },
   { id: 'alkalinity', name: 'Alkalinity', unit: 'dKH', color: '#EF4444' },
   { id: 'calcium', name: 'Calcium', unit: 'ppm', color: '#3B82F6' },
-  { id: 'magnesium', name: 'Magnesium', unit: 'ppm', color: '#8B5CF6' },
+  { id: 'magnesium', name: 'Magnesium', unit: 'ppm', color: '#A78BFA' },
 ];
 
 function Sparkline({ data, color }: { data: WidgetData[]; color: string }) {
@@ -200,7 +200,7 @@ function WidgetCard({ id, name, unit, color, onCardClick }: WidgetCardProps) {
           <span className="text-[9px] uppercase tracking-widest font-bold" style={{ color }}>
             {name.split(' ')[0]}
           </span>
-          <span className="font-display font-bold text-xs text-text-primary mt-0.5 group-hover:text-accent-uv transition-colors">
+          <span className="font-display font-bold text-xs text-text-primary mt-0.5 group-hover:text-white transition-colors">
             {name}
           </span>
         </div>
@@ -293,7 +293,7 @@ function WidgetCard({ id, name, unit, color, onCardClick }: WidgetCardProps) {
               </button>
               <button
                 onClick={handleSave}
-                className="flex-1 py-2.5 bg-accent-uv text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md hover:bg-accent-uv/90"
+                className="flex-1 py-2.5 bg-white text-black rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md hover:bg-white/90"
               >
                 Save Value
               </button>
@@ -371,7 +371,7 @@ export function WidgetDashboard() {
           className={clsx(
             "p-2 rounded-xl transition-all border shadow-sm",
             editMode 
-              ? "bg-accent-uv border-accent-uv text-white" 
+              ? "bg-white border-white text-black" 
               : "bg-bg-card border-border text-text-secondary hover:text-text-primary hover:border-border"
           )}
         >
@@ -405,7 +405,7 @@ export function WidgetDashboard() {
                   type="checkbox"
                   checked={!!widgets[w.id]}
                   onChange={() => toggleWidget(w.id)}
-                  className="w-4 h-4 rounded border-border accent-accent-uv bg-bg-base outline-none cursor-pointer"
+                  className="w-4 h-4 rounded border-border accent-white bg-bg-base outline-none cursor-pointer"
                 />
               </label>
             ))}
@@ -431,7 +431,7 @@ export function WidgetDashboard() {
               <span>No active widgets.</span>
               <button 
                 onClick={() => setEditMode(true)}
-                className="text-accent-uv font-bold uppercase tracking-widest text-[9px] hover:underline"
+                className="text-white font-bold uppercase tracking-widest text-[9px] hover:underline"
               >
                 Add Parameters Widget
               </button>
@@ -497,7 +497,7 @@ export function WidgetDashboard() {
                   />
                   <button 
                     onClick={handleModalSaveValue}
-                    className="py-2 px-4 bg-accent-uv hover:bg-accent-uv/90 text-white text-[10px] font-bold rounded-xl transition-all shadow-md"
+                    className="py-2 px-4 bg-white hover:bg-white/90 text-black text-[10px] font-bold rounded-xl transition-all shadow-md"
                   >
                     Save
                   </button>
@@ -591,7 +591,7 @@ export function WidgetDashboard() {
                   />
                   {/* Current Pin pointer */}
                   <div 
-                    className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border border-[#1C1C1E] rounded-full shadow-[0_0_8px_rgba(255,255,255,0.7)] -ml-2 flex items-center justify-center transition-all duration-300" 
+                    className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white border border-[#3C3C3E] rounded-full shadow-sm -ml-1.5 flex items-center justify-center transition-all duration-300" 
                     style={{ left: `${optPct}%` }}
                   >
                     <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: selectedParam.color }} />

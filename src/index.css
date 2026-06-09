@@ -18,20 +18,20 @@
 
   /* Chrome/Safari Range Sliders */
   input[type="range"]::-webkit-slider-runnable-track {
-    @apply h-1.5 rounded-full;
+    @apply h-[3px] rounded-full;
   }
 
   input[type="range"]::-webkit-slider-thumb {
-    @apply appearance-none w-5 h-5 rounded-full bg-white border border-[#1C1C1E] shadow-md -mt-[7px] transition-transform duration-150 hover:scale-105 active:scale-95;
+    @apply appearance-none w-3 h-3 rounded-full bg-white border border-[#3C3C3E] shadow-sm -mt-[4.5px] transition-transform duration-150 hover:scale-110 active:scale-90;
   }
 
   /* Firefox Range Sliders */
   input[type="range"]::-moz-range-track {
-    @apply h-1.5 rounded-full;
+    @apply h-[3px] rounded-full;
   }
 
   input[type="range"]::-moz-range-thumb {
-    @apply w-5 h-5 rounded-full bg-white border border-[#1C1C1E] shadow-md transition-transform duration-150 hover:scale-105 active:scale-95;
+    @apply w-3 h-3 rounded-full bg-white border border-[#3C3C3E] shadow-sm transition-transform duration-150 hover:scale-110 active:scale-90;
   }
 
   /* Webkit custom scrollbar for dashboard */

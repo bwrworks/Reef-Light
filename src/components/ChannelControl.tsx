@@ -17,12 +17,18 @@ function ChannelSlider({ id, name, subName, colorClass, icon, disabled }: Channe
   const value = channels[id];
   const pct = Math.round((value / 255) * 100);
 
-  // Gradient definitions for slide tracks
-  const trackGradients: Record<string, string> = {
-    uvRed: 'linear-gradient(to right, #8B5CF6, #EF4444)',
-    blueA: 'linear-gradient(to right, #1E40AF, #2563EB)',
-    blueB: 'linear-gradient(to right, #2563EB, #3B82F6)',
-    white: 'linear-gradient(to right, #F59E0B, #F3F4F6)',
+  // Progress-aware track gradient — only fills up to the current value
+  const getTrackBackground = (sliderValue: number): string => {
+    const pct = Math.round((sliderValue / 255) * 100);
+    if (sliderValue === 0) return '#1C1C1E';
+    const channelColors: Record<string, { start: string; end: string }> = {
+      uvRed:  { start: '#EC4899', end: '#EF4444' },
+      blueA:  { start: '#1E40AF', end: '#2563EB' },
+      blueB:  { start: '#2563EB', end: '#3B82F6' },
+      white:  { start: '#9CA3AF', end: '#F3F4F6' },
+    };
+    const c = channelColors[id] ?? { start: '#9CA3AF', end: '#FFFFFF' };
+    return `linear-gradient(to right, ${c.start} 0%, ${c.end} ${pct}%, #1C1C1E ${pct}%, #1C1C1E 100%)`;
   };
 
   return (
@@ -58,8 +64,8 @@ function ChannelSlider({ id, name, subName, colorClass, icon, disabled }: Channe
           onChange={(e) => updateChannel(id, parseInt(e.target.value, 10))}
           className="w-full"
           style={{
-            background: value > 0 ? trackGradients[id] : 'rgba(26, 36, 61, 0.4)',
-            height: '6px',
+            background: getTrackBackground(value),
+            height: '3px',
             borderRadius: '9999px',
           }}
         />
@@ -130,7 +136,7 @@ export function ChannelControl() {
               className="w-full"
               style={{
                 background: 'linear-gradient(to right, #FCD34D, #F3F4F6, #93C5FD, #2563EB)',
-                height: '8px',
+                height: '5px',
                 borderRadius: '9999px',
               }}
             />
@@ -155,14 +161,14 @@ export function ChannelControl() {
               id="uvRed" 
               name="UV + Red" 
               subName="Actinic Coral Pop" 
-              colorClass="bg-purple-950/40 border-purple-500/30 text-purple-400"
+              colorClass="bg-[#1C0A0A] border-pink-900/40 text-pink-400"
               icon={<Flame size={16} />}
             />
             <ChannelSlider 
               id="white" 
               name="Cool White" 
               subName="High PAR Brightness" 
-              colorClass="bg-amber-950/40 border-amber-500/30 text-amber-400"
+              colorClass="bg-[#141414] border-[#3C3C3E] text-[#D1D5DB]"
               icon={<Sun size={16} />}
             />
           </div>
@@ -191,14 +197,14 @@ export function ChannelControl() {
               id="blueA" 
               name="Royal Blue A" 
               subName="Deepwater Growth" 
-              colorClass="bg-blue-950/40 border-blue-500/30 text-blue-400"
+              colorClass="bg-[#0A0A1C] border-blue-900/40 text-blue-400"
               icon={<Zap size={16} />}
             />
             <ChannelSlider 
               id="blueB" 
               name="Royal Blue B" 
               subName="Chlorophyll Absorption" 
-              colorClass="bg-blue-950/40 border-sky-500/30 text-sky-400"
+              colorClass="bg-[#0A0A1C] border-sky-900/40 text-sky-400"
               icon={<Zap size={16} />}
               disabled={channels.linked}
             />
@@ -261,7 +267,7 @@ export function ChannelControl() {
                   </button>
                   <button
                     onClick={handleSave}
-                    className="flex-1 py-2.5 bg-accent-blue text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md hover:bg-accent-blue/90"
+                    className="flex-1 py-2.5 bg-white text-black rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md hover:bg-white/90"
                   >
                     Save Scene
                   </button>

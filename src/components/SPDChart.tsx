@@ -135,7 +135,7 @@ export function SPDChart({ isHome = false, onEditClick }: SPDChartProps) {
       <div className="bg-bg-card border border-border rounded-2xl p-4 shadow-md flex flex-col justify-between min-h-[145px] transition-all duration-200">
         <div className="flex justify-between items-start">
           <div className="flex flex-col">
-            <span className="text-[9px] text-accent-uv uppercase tracking-widest font-bold">Lighting Spectrum</span>
+            <span className="text-[9px] text-text-secondary uppercase tracking-widest font-bold">Lighting Spectrum</span>
             <span className="font-display font-bold text-xs text-text-primary mt-0.5">Current Wavelengths</span>
           </div>
           <button 
