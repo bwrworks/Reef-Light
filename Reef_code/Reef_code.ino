@@ -82,8 +82,9 @@ void addLog(String msg) {
 #define PIN_FAN     33
 
 // ─── PWM ────────────────────────────────────────────────────────────
-#define PWM_FREQ  1000   // 1kHz
+#define PWM_FREQ  1000   // 1kHz for LEDs
 #define PWM_RES   8      // 8-bit (0-255)
+#define FAN_PWM_FREQ 25000 // 25kHz for silent fan speed control
 
 // ─── NTP ────────────────────────────────────────────────────────────
 const char* NTP_SERVER = "pool.ntp.org";
@@ -501,7 +502,7 @@ void setup() {
   ledcAttach(PIN_BLUE_A, PWM_FREQ, PWM_RES);
   ledcAttach(PIN_BLUE_B, PWM_FREQ, PWM_RES);
   ledcAttach(PIN_WHITE,  PWM_FREQ, PWM_RES);
-  ledcAttach(PIN_FAN,    PWM_FREQ, PWM_RES);
+  ledcAttach(PIN_FAN,    FAN_PWM_FREQ, PWM_RES);
   allOff();
   loadPrefs();
   applyFan();  // apply saved fan speed on boot

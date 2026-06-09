@@ -159,7 +159,7 @@ function FanControl() {
         <div className="grid grid-cols-2 gap-3 text-left">
           <div>
             <div className="text-[8px] text-text-secondary uppercase tracking-wider font-bold">Controller</div>
-            <div className="text-xs font-mono text-text-primary mt-0.5">PWM · PIN 33</div>
+            <div className="text-xs font-mono text-text-primary mt-0.5">PWM (25kHz) · PIN 33</div>
           </div>
           <div>
             <div className="text-[8px] text-text-secondary uppercase tracking-wider font-bold">Driver Type</div>
@@ -177,7 +177,7 @@ function FanControl() {
           </div>
         </div>
         <p className="text-[8px] text-text-secondary/70 leading-relaxed mt-1">
-          Fan speed is saved to ESP32 flash memory and persists across power cycles. Set to 0% to turn the fan off completely.
+          Fan speed is saved to ESP32 flash memory and persists across power cycles. Uses a silent 25kHz high-frequency PWM to eliminate motor hum/stuttering.
         </p>
       </div>
     </div>
