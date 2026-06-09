@@ -8,11 +8,11 @@ export default {
     extend: {
       colors: {
         bg: {
-          base: '#040713',
-          card: '#0B0F1F',
-          elevated: '#12192E',
+          base: '#000000',
+          card: '#0B0B0C',
+          elevated: '#121214',
         },
-        border: '#1A243D',
+        border: '#1C1C1E',
         accent: {
           blue: '#2563EB',
           uv: '#8B5CF6',
@@ -21,9 +21,9 @@ export default {
           cyan: '#06B6D4',
         },
         text: {
-          primary: '#F3F4F6',
-          secondary: '#9CA3AF',
-          muted: '#6B7280',
+          primary: '#FFFFFF',
+          secondary: '#8E8E93',
+          muted: '#5C5C5E',
         },
         status: {
           success: '#10B981',

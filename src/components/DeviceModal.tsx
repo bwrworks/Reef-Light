@@ -21,7 +21,7 @@ export function DeviceModal({ isOpen, onClose }: DeviceModalProps) {
     <div className="fixed inset-0 z-30 flex items-end justify-center">
       {/* Dark Overlay */}
       <div 
-        className="absolute inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-200" 
+        className="absolute inset-0 bg-black/80 transition-opacity duration-200" 
         onClick={onClose}
       />
 

@@ -42,14 +42,15 @@
 }
 
 @layer utilities {
-  .ambient-glow {
-    position: fixed;
-    border-radius: 50%;
-    filter: blur(140px);
-    z-index: 0;
+  .bg-watermark {
+    background-image: url('/coral_banner.png');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.12;
+    position: absolute;
+    inset: 0;
     pointer-events: none;
-    opacity: 0.45;
-    mix-blend-mode: screen;
+    z-index: 0;
   }
 
   .no-scrollbar::-webkit-scrollbar {

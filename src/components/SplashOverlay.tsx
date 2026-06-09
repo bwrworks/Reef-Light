@@ -7,13 +7,13 @@ export function SplashOverlay() {
   if (status === 'connected') return null;
 
   return (
-    <div className="fixed inset-0 bg-[#040713] flex flex-col items-center justify-between py-16 px-6 z-50 animate-fade-in text-center">
+    <div className="fixed inset-0 bg-[#000000] flex flex-col items-center justify-between py-16 px-6 z-50 animate-fade-in text-center">
       {/* Top Spacer */}
       <div></div>
 
       {/* Main Branding Section */}
       <div className="flex flex-col items-center gap-6">
-        <div className="w-32 h-32 rounded-full bg-[#0b0f1f]/80 border border-border flex items-center justify-content overflow-hidden shadow-2xl p-4">
+        <div className="w-32 h-32 rounded-full bg-[#0b0b0c] border border-border flex items-center justify-center overflow-hidden shadow-2xl p-4">
           <img 
             src="/logo_transparent.png" 
             alt="Creators Logo" 
@@ -37,7 +37,7 @@ export function SplashOverlay() {
 
       {/* Connection Card Section */}
       <div className="w-full max-w-[320px] flex flex-col gap-6">
-        <div className="bg-[#0b0f1f] border border-[#1a243d] rounded-2xl p-5 text-left shadow-lg">
+        <div className="bg-[#0b0b0c] border border-border rounded-2xl p-5 text-left shadow-lg">
           <h4 className="text-[9px] uppercase tracking-widest text-text-secondary font-bold mb-3">
             Cloud Connection
           </h4>

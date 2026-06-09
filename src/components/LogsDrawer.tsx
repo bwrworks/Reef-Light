@@ -23,7 +23,7 @@ export function LogsDrawer({ isOpen, onClose }: LogsDrawerProps) {
     <div className="fixed inset-0 z-40 flex items-end justify-center">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-200" 
+        className="absolute inset-0 bg-black/70 transition-opacity duration-200" 
         onClick={onClose}
       />
 
