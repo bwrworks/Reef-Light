@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0A0A0A">
+<title>Reef Controller</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+/* ────────────────────────────────────────
+   DESIGN TOKENS — B&W chrome, colors only on spectrum
+──────────────────────────────────────── */
+:root {
+  --bg:    #0A0A0A;
+  --bg2:   #101010;
+  --s1:    #171717;
+  --s2:    #202020;
+  --s3:    #2A2A2A;
+  --s4:    #363636;
+  --t1:    #FFFFFF;
+  --t2:    #888888;
+  --t3:    #444444;
+  --t4:    #2C2C2C;
+
+  /* SPECTRUM — only colored things in UI */
+  --uv:   #8000FF;
+  --ba:   #0044FF;
+  --bb:   #0099FF;
+  --wh:   #FFE066;
+  --fan:  #D0D0D0;
+
+  --mono: 'JetBrains Mono', 'Courier New', monospace;
+  --sans: 'Inter', -apple-system, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; background: #000; color: var(--t1); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+
+/* ────────────────────────────────────────
+   APP SHELL
+──────────────────────────────────────── */
+body { display: flex; align-items: center; justify-content: center; }
+.app {
+  display: flex; flex-direction: column;
+  height: 100vh; height: 100dvh;
+  width: 100%; max-width: 430px; margin: 0 auto;
+  background: var(--bg); position: relative;
+}
+@media (min-width: 431px) {
+  body { background: #161616; }
+  .app {
+    height: 850px; max-height: 90vh;
+    border-radius: 24px; border: 1px solid var(--s3);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+    overflow: hidden;
+  }
+}
+
+/* ────────────────────────────────────────
+   HEADER
+──────────────────────────────────────── */
+.hdr {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--s3);
+  background: var(--bg);
+}
+.hdr-left { display: flex; align-items: center; gap: 12px; }
+.hdr-logo { max-width: 50px; max-height: 28px; width: auto; height: auto; object-fit: contain; mix-blend-mode: screen; }
+.hdr-brand {}
+.hdr-name {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--t1);
+}
+.hdr-sub { font-size: 9px; color: var(--t3); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 2px; }
+
+.hdr-right { display: flex; align-items: center; gap: 12px; }
+.hdr-time { font-family: var(--mono); font-size: 14px; color: var(--t2); letter-spacing: 0.04em; }
+
+/* Global Power Button */
+.pwr-btn {
+  width: 32px; height: 32px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--s3); background: var(--bg2);
+  cursor: pointer; transition: all 0.2s; color: var(--t3);
+}
+.pwr-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.pwr-btn.on { background: var(--t1); color: #000; border-color: var(--t1); }
+
+/* ────────────────────────────────────────
+   TAB BAR
+──────────────────────────────────────── */
+.tabbar {
+  flex-shrink: 0; display: flex;
+  border-bottom: 1px solid var(--s3);
+  background: var(--bg);
+}
+.tb {
+  flex: 1; padding: 11px 0; text-align: center;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--t3); cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  user-select: none;
+}
+.tb.on { color: var(--t1); border-bottom-color: var(--t1); }
+
+/* ────────────────────────────────────────
+   CONTENT PANE
+──────────────────────────────────────── */
+.pane { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; display: none; }
+.pane.on { display: block; }
+.pane::-webkit-scrollbar { display: none; }
+
+/* ────────────────────────────────────────
+   SPD CANVAS (Control tab hero)
+──────────────────────────────────────── */
+.spd-wrap {
+  position: relative; background: var(--bg2);
+  border-bottom: 1px solid var(--s3);
+}
+.spd-badge {
+  position: absolute; top: 8px; left: 14px;
+  font-size: 8px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--t3); pointer-events: none;
+}
+#spdCanvas { display: block; width: 100%; height: 108px; }
+
+/* ────────────────────────────────────────
+   MODE ROW
+──────────────────────────────────────── */
+.mode-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 18px;
+  border-bottom: 1px solid var(--s3);
+  background: var(--bg2);
+}
+.mode-status { font-size: 10px; color: var(--t3); letter-spacing: 0.1em; text-transform: uppercase; }
+.mode-seg { display: flex; gap: 1px; background: var(--s3); border-radius: 5px; overflow: hidden; }
+.mode-seg button {
+  padding: 5px 16px;
+  background: var(--s1); border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--t3);
+  transition: all 0.15s;
+}
+.mode-seg button.on { background: var(--t1); color: #000; }
+
+/* ────────────────────────────────────────
+   CHANNEL ROWS
+──────────────────────────────────────── */
+.ch-list {}
+.ch-row {
+  display: flex; align-items: center; gap: 0;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--s3);
+}
+.ch-stripe {
+  width: 3px; height: 38px; border-radius: 2px;
+  flex-shrink: 0; margin-right: 14px;
+}
+.ch-meta { flex: 0 0 auto; min-width: 96px; }
+.ch-name { font-size: 13px; font-weight: 600; color: var(--t1); }
+.ch-nm   { font-size: 9px; color: var(--t3); letter-spacing: 0.06em; font-family: var(--mono); margin-top: 3px; }
+.ch-ctrl { flex: 1; display: flex; align-items: center; gap: 10px; }
+.ch-pct  { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--t1); min-width: 50px; text-align: right; flex-shrink: 0; }
+.ch-sl-wrap { flex: 1; }
+
+/* Sliders */
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 3px; border-radius: 2px;
+  outline: none; cursor: pointer;
+  background: var(--s3);
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--t1); border: 2px solid var(--bg);
+  box-shadow: 0 1px 8px rgba(0,0,0,0.6);
+  cursor: pointer; transition: transform 0.12s;
+}
+input[type=range]:active::-webkit-slider-thumb { transform: scale(1.25); }
+
+/* Link row */
+.link-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 18px; background: var(--bg2); border-bottom: 1px solid var(--s3);
+}
+.link-lbl { font-size: 9px; color: var(--t3); letter-spacing: 0.14em; text-transform: uppercase; }
+.link-ctl { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.link-ctl input { display: none; }
+.ltrack {
+  width: 36px; height: 20px; border-radius: 10px; background: var(--s3);
+  position: relative; transition: background 0.2s;
+}
+.lthumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--t3); transition: transform 0.22s, background 0.2s;
+}
+.link-ctl input:checked + .ltrack { background: var(--s2); border: 1px solid var(--t3); }
+.link-ctl input:checked + .ltrack .lthumb { transform: translateX(16px); background: var(--t1); }
+.link-txt {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--t3); transition: color 0.2s;
+}
+.link-ctl input:checked ~ .link-txt { color: var(--t1); }
+
+/* ────────────────────────────────────────
+   SCENES
+──────────────────────────────────────── */
+.sec-hdr-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 18px 8px; border-top: 1px solid var(--s3);
+}
+.sec-lbl {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--t3);
+}
+.save-scene-btn {
+  background: var(--s2); border: 1px solid var(--s3); color: var(--t2); border-radius: 4px; padding: 4px 8px;
+  font-family: var(--sans); font-size: 8px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; transition: all 0.2s;
+}
+.save-scene-btn:active { background: var(--s3); }
+
+.scenes-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  background: var(--s3); gap: 1px;
+  border-top: 1px solid var(--s3); border-bottom: 1px solid var(--s3);
+}
+.sc {
+  background: var(--bg2); padding: 13px 4px 11px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  cursor: pointer; transition: background 0.15s; user-select: none;
+}
+.sc:active { background: var(--s2); }
+.sc.on { background: var(--s1); }
+.sc-icon { font-size: 20px; }
+.sc-name {
+  font-size: 8px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--t3); text-align: center;
+}
+.sc.on .sc-name { color: var(--t1); }
+
+.sp { height: 20px; }
+
+/* ────────────────────────────────────────
+   SCHEDULE TAB — 24h Canvas
+──────────────────────────────────────── */
+.sch-cv-wrap { position: relative; background: var(--bg2); border-bottom: 1px solid var(--s3); }
+.sch-cv-badge { position: absolute; top: 8px; left: 14px; font-size: 8px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--t3); pointer-events: none; }
+#schCanvas { display: block; width: 100%; height: 138px; }
+
+/* Stats strip */
+.stats-strip { display: flex; border-bottom: 1px solid var(--s3); }
+.stat { flex: 1; padding: 11px 0; text-align: center; border-right: 1px solid var(--s3); }
+.stat:last-child { border-right: none; }
+.stat-v { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--t1); }
+.stat-l { font-size: 8px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--t3); margin-top: 3px; }
+
+/* Settings block */
+.blk { border-bottom: 1px solid var(--s3); }
+.blk-hdr { padding: 9px 18px; font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--t3); background: var(--bg2); border-bottom: 1px solid var(--s3); }
+.row { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-bottom: 1px solid var(--s3); }
+.row:last-child { border-bottom: none; }
+.row-l { font-size: 13px; font-weight: 500; }
+.row-h { font-size: 10px; color: var(--t3); margin-top: 2px; }
+
+/* Toggle */
+.tog { cursor: pointer; }
+.tog input { display: none; }
+.tog-track { width: 44px; height: 24px; position: relative; background: var(--s3); border-radius: 12px; transition: background 0.2s; }
+.tog-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--t3); transition: transform 0.22s, background 0.2s; }
+.tog input:checked + .tog-track { background: var(--s2); border: 1px solid var(--t2); }
+.tog input:checked + .tog-track .tog-thumb { transform: translateX(20px); background: var(--t1); }
+
+/* Number/Time inputs */
+input[type=time], input[type=number] {
+  background: var(--s2); border: 1px solid var(--s3); color: var(--t1);
+  border-radius: 6px; padding: 7px 6px;
+  font-family: var(--mono); font-size: 15px; font-weight: 600;
+  text-align: center; outline: none;
+}
+input[type=time] { width: 100px; }
+input[type=number] { width: 52px; -moz-appearance: textfield; }
+input[type=time]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.6; cursor: pointer; }
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+input[type=time]:focus, input[type=number]:focus { border-color: var(--t2); }
+
+/* Peak rows */
+.pk-row { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--s3); }
+.pk-row:last-child { border-bottom: none; }
+.pk-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.pk-name { font-size: 12px; font-weight: 600; flex: 0 0 56px; }
+.pk-sl { flex: 1; }
+.pk-pct { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--t1); min-width: 38px; text-align: right; }
+
+/* Save */
+.save-btn {
+  display: block; width: calc(100% - 36px); margin: 16px 18px; padding: 15px;
+  background: var(--t1); color: #000; border: none; border-radius: 7px;
+  font-family: var(--sans); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase; cursor: pointer; transition: opacity 0.15s;
+}
+.save-btn:active { opacity: 0.8; }
+.save-btn.ok { background: var(--s2); color: var(--t1); border: 1px solid var(--t3); }
+
+/* ────────────────────────────────────────
+   SYSTEM & LOGS
+──────────────────────────────────────── */
+.sys-blk { border-bottom: 1px solid var(--s3); }
+.sys-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-bottom: 1px solid var(--s3); font-size: 13px; }
+.sys-row:last-child { border-bottom: none; }
+.sys-k { color: var(--t2); display: flex; align-items: center; gap: 8px; }
+.sys-v { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--t1); }
+.sys-act .sys-k { color: var(--t1); }
+.sys-act .sys-v { color: var(--t3); }
+.sys-act { cursor: pointer; }
+
+/* Logs Modal */
+.logs-modal {
+  position: absolute; inset: 0; z-index: 100;
+  background: var(--bg); display: flex; flex-direction: column;
+  transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.logs-modal.on { transform: translateY(0); }
+.logs-hdr { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--s3); background: var(--bg2); }
+.logs-title { font-size: 12px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; }
+.close-btn { background: var(--s3); border: 1px solid var(--t3); width: 32px; height: 32px; border-radius: 16px; color: var(--t1); font-size: 16px; cursor: pointer; }
+.logs-body { flex: 1; padding: 20px; overflow-y: auto; font-family: var(--mono); font-size: 11px; color: var(--t2); line-height: 1.6; }
+.log-item { padding: 8px 0; border-bottom: 1px solid var(--s3); }
+.log-item:last-child { border-bottom: none; }
+.log-time { color: var(--t1); margin-right: 8px; font-weight: 600; }
+
+/* ────────────────────────────────────────
+   CONNECTION OVERLAY
+──────────────────────────────────────── */
+.conn-ov {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 28px;
+}
+.conn-logo { margin-bottom: 24px; text-align: center; }
+.conn-logo-img { max-width: 140px; max-height: 80px; width: auto; height: auto; object-fit: contain; mix-blend-mode: screen; margin-bottom: 14px; }
+.conn-brand { font-size: 12px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; }
+.conn-brand-sub { font-size: 9px; color: var(--t3); letter-spacing: 0.16em; text-transform: uppercase; margin-top: 4px; }
+
+.conn-card { width: 100%; max-width: 310px; background: var(--s1); border: 1px solid var(--s3); border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
+.conn-card-hdr { padding: 11px 18px; font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--t3); border-bottom: 1px solid var(--s3); }
+.conn-status { display: flex; align-items: center; justify-content: space-between; padding: 13px 18px; border-bottom: 1px solid var(--s3); }
+.conn-status-lbl { font-size: 12px; color: var(--t2); }
+.conn-status-val { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--t3); font-family: var(--mono); }
+.spin { width: 10px; height: 10px; border: 1.5px solid var(--s4); border-top-color: var(--t2); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.conn-hint { font-size: 10px; color: var(--t3); text-align: center; line-height: 1.7; }
+.conn-hint strong { color: var(--t2); }
+
+/* NAME MODAL */
+.name-modal {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.name-modal.on { opacity: 1; pointer-events: auto; }
+.nm-box {
+  background: var(--bg2); border: 1px solid var(--s3);
+  padding: 24px; border-radius: 16px; width: 280px;
+  transform: translateY(20px); transition: transform 0.2s;
+}
+.name-modal.on .nm-box { transform: translateY(0); }
+.nm-title { font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 16px; text-align: center; }
+.nm-input {
+  width: 100%; background: var(--s1); border: 1px solid var(--s3);
+  color: var(--t1); padding: 12px; border-radius: 8px;
+  font-family: var(--sans); font-size: 13px; outline: none; margin-bottom: 20px;
+}
+.nm-input:focus { border-color: var(--t2); }
+.nm-btns { display: flex; gap: 12px; }
+.nm-btn {
+  flex: 1; padding: 12px; border-radius: 8px; border: none;
+  font-family: var(--sans); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+}
+.nm-btn.cancel { background: var(--s3); color: var(--t1); }
+.nm-btn.save { background: var(--t1); color: #000; }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(70px);
+  background: var(--t1); color: #000; border-radius: 6px; padding: 8px 20px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  z-index: 999; white-space: nowrap; transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.toast.on { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- CONNECTION OVERLAY -->
+<div class="conn-ov" id="connOv">
+  <div class="conn-logo">
+    <img src="logo.jpeg" class="conn-logo-img" onerror="this.style.display='none'">
+    <div class="conn-brand">Creators Aquarium</div>
+    <div class="conn-brand-sub">Reef Light Controller</div>
+  </div>
+
+  <div class="conn-card">
+    <div class="conn-card-hdr">Cloud Connection</div>
+    <div class="conn-status">
+      <div class="conn-status-lbl">Status</div>
+      <div class="conn-status-val">
+        <div class="spin" id="discSpin"></div>
+        <span id="discTxt">Connecting to Cloud...</span>
+      </div>
+    </div>
+  </div>
+  <div class="conn-hint">Securing remote connection<br><strong>Cloud IoT Core</strong></div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="mainApp" style="display:none">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-left">
+      <img src="logo.jpeg" class="hdr-logo" onerror="this.style.display='none'">
+      <div class="hdr-brand">
+        <div class="hdr-name" id="hdrName">Creators Reef</div>
+        <div class="hdr-sub" id="hdrConn" style="color:var(--t3)">SEARCHING...</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-time" id="hdrTime">--:--</div>
+      <button class="pwr-btn on" id="btnPwr" onclick="togglePower()">
+        <svg viewBox="0 0 24 24"><path d="M12 2v10m-6.36-2.64a9 9 0 1 0 12.72 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tabbar">
+    <div class="tb on" id="tb-ctrl" onclick="tab('ctrl')">Control</div>
+    <div class="tb" id="tb-sch" onclick="tab('sch')">Schedule</div>
+    <div class="tb" id="tb-sys" onclick="tab('sys')">System</div>
+  </div>
+
+  <!-- CONTROL PANE -->
+  <div class="pane on" id="pane-ctrl">
+    <div class="spd-wrap">
+      <div class="spd-badge">SPD · Spectral Power</div>
+      <canvas id="spdCanvas" height="108"></canvas>
+    </div>
+
+    <div class="mode-row">
+      <div class="mode-status" id="modeStatus">Schedule active</div>
+      <div class="mode-seg">
+        <button id="btnAuto" onclick="setAuto()">Auto</button>
+        <button id="btnManual" onclick="setManual()">Manual</button>
+      </div>
+    </div>
+
+    <div class="ch-list">
+      <!-- UV + Red -->
+      <div class="ch-row">
+        <div class="ch-stripe" style="background: linear-gradient(to bottom, var(--uv), #FF0044)"></div>
+        <div class="ch-meta"><div class="ch-name">UV + Red</div><div class="ch-nm">Growth Blend</div></div>
+        <div class="ch-ctrl">
+          <div class="ch-sl-wrap"><input type="range" id="sl-uvRed" autocomplete="off" min="0" max="255" value="0" data-ch="uvRed" data-r="128" data-g="0" data-b="255" oninput="onSl(this)" onchange="flushCh()"></div>
+          <div class="ch-pct" id="pct-uvRed">0%</div>
+        </div>
+      </div>
+      
+      <!-- Link row -->
+      <div class="link-row">
+        <div class="link-lbl">Royal Blue A + B</div>
+        <label class="link-ctl"><input type="checkbox" id="linkBlue" autocomplete="off" checked onchange="onLink()"><div class="ltrack"><div class="lthumb"></div></div><span class="link-txt">LINKED</span></label>
+      </div>
+
+      <!-- Blue A -->
+      <div class="ch-row">
+        <div class="ch-stripe" style="background: var(--ba)"></div>
+        <div class="ch-meta"><div class="ch-name">Royal Blue A</div><div class="ch-nm">Actinic Core</div></div>
+        <div class="ch-ctrl">
+          <div class="ch-sl-wrap"><input type="range" id="sl-blueA" autocomplete="off" min="0" max="255" value="0" data-ch="blueA" data-r="0" data-g="68" data-b="255" oninput="onSl(this)" onchange="flushCh()"></div>
+          <div class="ch-pct" id="pct-blueA">0%</div>
+        </div>
+      </div>
+
+      <!-- Blue B -->
+      <div class="ch-row">
+        <div class="ch-stripe" style="background: var(--bb)"></div>
+        <div class="ch-meta"><div class="ch-name">Royal Blue B</div><div class="ch-nm">Fluorescence</div></div>
+        <div class="ch-ctrl">
+          <div class="ch-sl-wrap"><input type="range" id="sl-blueB" autocomplete="off" min="0" max="255" value="0" data-ch="blueB" data-r="0" data-g="153" data-b="255" oninput="onSl(this)" onchange="flushCh()"></div>
+          <div class="ch-pct" id="pct-blueB">0%</div>
+        </div>
+      </div>
+
+      <!-- White -->
+      <div class="ch-row">
+        <div class="ch-stripe" style="background: linear-gradient(to bottom, var(--wh), #FFF9D0)"></div>
+        <div class="ch-meta"><div class="ch-name">Cool White</div><div class="ch-nm">Daylight Spectrum</div></div>
+        <div class="ch-ctrl">
+          <div class="ch-sl-wrap"><input type="range" id="sl-white" autocomplete="off" min="0" max="255" value="0" data-ch="white" data-r="255" data-g="224" data-b="102" oninput="onSl(this)" onchange="flushCh()"></div>
+          <div class="ch-pct" id="pct-white">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scenes -->
+    <div class="sec-hdr-row">
+      <div class="sec-lbl">Quick Scenes</div>
+      <button class="save-scene-btn" onclick="saveCustomScene()">Save Custom</button>
+    </div>
+    <div class="scenes-grid">
+      <div class="sc" id="sc-reef"   onclick="scene('reef')">  <div class="sc-icon">🌊</div><div class="sc-name">Reef Day</div></div>
+      <div class="sc" id="sc-blue"   onclick="scene('blue')">  <div class="sc-icon">💙</div><div class="sc-name">Actinic</div></div>
+      <div class="sc" id="sc-deep"   onclick="scene('deep')">  <div class="sc-icon">🌌</div><div class="sc-name">Deep Blue</div></div>
+      <div class="sc" id="sc-day"    onclick="scene('day')">   <div class="sc-icon">☀️</div><div class="sc-name">Daylight</div></div>
+      <div class="sc" id="sc-shallow" onclick="scene('shallow')"><div class="sc-icon">🏖️</div><div class="sc-name">Shallow</div></div>
+      <div class="sc" id="sc-moon"   onclick="scene('moon')">  <div class="sc-icon">🌙</div><div class="sc-name">Lunar</div></div>
+      <div class="sc" id="sc-custom" onclick="loadCustomScene()"><div class="sc-icon">⭐</div><div class="sc-name" id="sc-custom-name">Custom</div></div>
+      <div class="sc" id="sc-off"    onclick="scene('off')">   <div class="sc-icon">○</div><div class="sc-name">All Off</div></div>
+    </div>
+    <div class="sp"></div>
+  </div>
+
+  <!-- SCHEDULE PANE -->
+  <div class="pane" id="pane-sch">
+    <div class="sch-cv-wrap">
+      <div class="sch-cv-badge">24-Hour Intensity Profile</div>
+      <canvas id="schCanvas" height="138"></canvas>
+    </div>
+    <div class="stats-strip">
+      <div class="stat"><div class="stat-v" id="st-sr">07:00 AM</div><div class="stat-l">Sunrise</div></div>
+      <div class="stat"><div class="stat-v" id="st-ss">08:00 PM</div><div class="stat-l">Sunset</div></div>
+      <div class="stat"><div class="stat-v" id="st-dur">13.0h</div><div class="stat-l">Duration</div></div>
+    </div>
+
+    <div class="blk">
+      <div class="blk-hdr">Schedule Timings</div>
+      <div class="row">
+        <div><div class="row-l">Auto Schedule</div><div class="row-h">Daily automation</div></div>
+        <label class="tog"><input type="checkbox" id="schEn" autocomplete="off" checked><div class="tog-track"><div class="tog-thumb"></div></div></label>
+      </div>
+      <div class="row">
+        <div><div class="row-l">Sunrise</div><div class="row-h">Ramp-up begins</div></div>
+        <input type="time" id="srTime" autocomplete="off" value="07:00" onchange="renderSch()">
+      </div>
+      <div class="row">
+        <div><div class="row-l">Sunset</div><div class="row-h">Ramp-down begins</div></div>
+        <input type="time" id="ssTime" autocomplete="off" value="20:00" onchange="renderSch()">
+      </div>
+      <div class="row">
+        <div><div class="row-l">Ramp Duration</div><div class="row-h">Fade in/out time</div></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="ramp" autocomplete="off" min="5" max="120" value="60" oninput="renderSch()">
+          <span style="font-size:11px;color:var(--t3)">min</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="blk">
+      <div class="blk-hdr">Peak Intensities (Midday)</div>
+      <div class="pk-row">
+        <div class="pk-dot" style="background:linear-gradient(135deg,var(--uv),#FF0044)"></div>
+        <div class="pk-name">UV+Red</div>
+        <div class="pk-sl"><input type="range" id="pk-uv" autocomplete="off" min="0" max="100" value="15" oninput="onPk(this,'pv-uv',128,0,255); renderSch()"></div>
+        <div class="pk-pct" id="pv-uv">15%</div>
+      </div>
+      <div class="pk-row">
+        <div class="pk-dot" style="background:var(--ba)"></div>
+        <div class="pk-name">Blue</div>
+        <div class="pk-sl"><input type="range" id="pk-blue" autocomplete="off" min="0" max="100" value="100" oninput="onPk(this,'pv-blue',0,68,255); renderSch()"></div>
+        <div class="pk-pct" id="pv-blue">100%</div>
+      </div>
+      <div class="pk-row">
+        <div class="pk-dot" style="background:var(--wh)"></div>
+        <div class="pk-name">White</div>
+        <div class="pk-sl"><input type="range" id="pk-white" autocomplete="off" min="0" max="100" value="25" oninput="onPk(this,'pv-white',255,224,102); renderSch()"></div>
+        <div class="pk-pct" id="pv-white">25%</div>
+      </div>
+    </div>
+    <button class="save-btn" id="savBtn" onclick="saveSch()">Save Schedule</button>
+    <div class="sp"></div>
+  </div>
+
+  <!-- SYSTEM PANE -->
+  <div class="pane" id="pane-sys">
+    <div class="sys-blk" style="margin-top:1px">
+      <div class="blk-hdr">System Status</div>
+      <div class="sys-row"><span class="sys-k">Connection</span><span class="sys-v" id="sv-wifi">--</span></div>
+      <div class="sys-row"><span class="sys-k">IP Address</span><span class="sys-v" id="sv-ip">--</span></div>
+      <div class="sys-row"><span class="sys-k">Uptime</span><span class="sys-v" id="sv-up">--</span></div>
+      <div class="sys-row sys-act" onclick="document.getElementById('logsModal').classList.add('on')">
+        <span class="sys-k">System Logs</span><span class="sys-v" style="color:var(--t2)">View →</span>
+      </div>
+    </div>
+    <div class="sys-blk">
+      <div class="blk-hdr">Actions</div>
+      <div class="sys-row sys-act" onclick="setAuto(); toast('Auto schedule resumed')">
+        <span class="sys-k">Resume Auto Schedule</span><span class="sys-v">→</span>
+      </div>
+      <div class="sys-row sys-act" onclick="location.reload()">
+        <span class="sys-k">Reconnect UI</span><span class="sys-v">→</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGS MODAL -->
+  <div class="logs-modal" id="logsModal">
+    <div class="logs-hdr">
+      <div class="logs-title">System Logs</div>
+      <button class="close-btn" onclick="document.getElementById('logsModal').classList.remove('on')">✕</button>
+    </div>
+    <div class="logs-body" id="logsBody">
+      <div class="log-item" style="color:var(--t3)">No logs available</div>
+    </div>
+  </div>
+
+  <!-- NAME MODAL -->
+  <div class="name-modal" id="nameModal">
+    <div class="nm-box">
+      <div class="nm-title">Name Custom Scene</div>
+      <input type="text" id="nmInput" class="nm-input" placeholder="e.g. My Coral Growth" autocomplete="off">
+      <div class="nm-btns">
+        <button class="nm-btn cancel" onclick="closeNameModal()">Cancel</button>
+        <button class="nm-btn save" onclick="confirmCustomScene()">Save</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<div class="toast" id="toastEl"></div>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════
+//  CONFIG & STATE
+// ══════════════════════════════════════════
+const SCENES = {
+  reef:    { uvRed:38,  blueA:255, blueB:255, white:64  },
+  blue:    { uvRed:10,  blueA:255, blueB:255, white:0   },
+  deep:    { uvRed:0,   blueA:128, blueB:255, white:0   },
+  day:     { uvRed:50,  blueA:200, blueB:200, white:255 },
+  shallow: { uvRed:80,  blueA:220, blueB:220, white:180 },
+  moon:    { uvRed:0,   blueA:10,  blueB:10,  white:0   },
+  off:     { uvRed:0,   blueA:0,   blueB:0,   white:0   },
+};
+
+let mqttClient = null;
+const TOPIC_CMD   = 'creatorsreef/cmd/cr-849a2bf1-9c32-4d51-a719-21b9a8f4d91e';
+const TOPIC_STATE = 'creatorsreef/state/cr-849a2bf1-9c32-4d51-a719-21b9a8f4d91e';
+
+let sndT    = null;
+let pend    = {};
+let linked  = true;
+let curSc   = null;
+let toastT  = null;
+let globalPower = true;
+let espTimeout = null;
+
+// ══════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════
+window.onload = () => {
+  initSliders(); initPeakSliders();
+  loadLocalState(); // Loads channels & schedule from localStorage
+  setInterval(() => updateClocks(), 1000);
+  setTimeout(() => { resizeCanvas('spdCanvas'); renderSpd(); resizeCanvas('schCanvas'); renderSch(); }, 100);
+  connectCloud();
+  loadCustomSceneData();
+};
+
+function formatAMPM(dateOrStr) {
+  let h, m;
+  if (typeof dateOrStr === 'string') {
+    const parts = dateOrStr.split(':');
+    h = parseInt(parts[0], 10); m = parseInt(parts[1], 10);
+  } else {
+    h = dateOrStr.getHours(); m = dateOrStr.getMinutes();
+  }
+  if (isNaN(h) || isNaN(m)) return '--:--';
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; h = h ? h : 12;
+  return `${h}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
+function updateClocks() {
+  document.getElementById('hdrTime').textContent = formatAMPM(new Date());
+}
+
+function connectCloud() {
+  mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+  mqttClient.on('connect', () => {
+    mqttClient.subscribe(TOPIC_STATE);
+    // Request state immediately to sync schedule and UI
+    mqttClient.publish(TOPIC_CMD, JSON.stringify({ cmd_type: "get_state" }));
+    
+    document.getElementById('hdrConn').textContent = 'SEARCHING ESP32...';
+    document.getElementById('hdrConn').style.color = 'var(--t2)';
+    document.getElementById('discTxt').textContent = 'Searching for device...';
+
+    // Timeout if ESP32 doesn't respond
+    espTimeout = setTimeout(() => {
+      document.getElementById('hdrConn').textContent = 'ESP32 OFFLINE';
+      document.getElementById('hdrConn').style.color = '#FF4444';
+      toast('ESP32 Device is Offline');
+    }, 4000);
+    
+    setTimeout(() => {
+      document.getElementById('connOv').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('connOv').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'flex';
+        resizeCanvas('spdCanvas'); renderSpd(); resizeCanvas('schCanvas'); renderSch();
+      }, 400);
+    }, 1200);
+  });
+  mqttClient.on('message', (topic, message) => {
+    if (topic === TOPIC_STATE) {
+      clearTimeout(espTimeout);
+      document.getElementById('hdrConn').textContent = 'ONLINE';
+      document.getElementById('hdrConn').style.color = '#FFFFFF';
+      
+      // Heartbeat watchdog: if ESP32 stops publishing, mark offline
+      espTimeout = setTimeout(() => {
+        document.getElementById('hdrConn').textContent = 'ESP32 OFFLINE';
+        document.getElementById('hdrConn').style.color = '#FF4444';
+      }, 65000);
+
+      try { 
+        const parsed = JSON.parse(message.toString());
+        // Cache the incoming valid state to local storage
+        if(parsed.uvRed !== undefined) {
+          localStorage.setItem('reefChannels', JSON.stringify({
+            uvRed: parsed.uvRed, blueA: parsed.blueA, blueB: parsed.blueB, white: parsed.white
+          }));
+        }
+        applyData(parsed); 
+      } catch(e){}
+    }
+  });
+  mqttClient.on('offline', () => {
+    clearTimeout(espTimeout);
+    document.getElementById('hdrConn').textContent = 'CLOUD DISCONNECTED';
+    document.getElementById('hdrConn').style.color = '#FF4444';
+  });
+}
+
+function applyData(d) {
+  if (d.name) document.getElementById('hdrName').textContent = d.name;
+  
+  if (d.power !== undefined) {
+    globalPower = d.power;
+    const btn = document.getElementById('btnPwr');
+    if (globalPower) btn.classList.add('on'); else btn.classList.remove('on');
+  }
+
+  const man = !!d.manual;
+  document.getElementById('btnAuto').className   = man ? '' : 'on';
+  document.getElementById('btnManual').className = man ? 'on' : '';
+  document.getElementById('modeStatus').textContent = man ? 'Manual Override' : 'Schedule Active';
+
+  if (document.activeElement?.type !== 'range' && document.activeElement?.type !== 'time') {
+    ['uvRed','blueA','blueB','white'].forEach(ch => setSl(ch, d[ch] || 0));
+    renderSpd();
+  }
+
+  document.getElementById('sv-wifi').textContent = d.wifi ? 'Connected' : 'Disconnected';
+  document.getElementById('sv-ip').textContent = d.ip || 'Cloud';
+  if (d.uptime !== undefined) {
+    const h = Math.floor(d.uptime/3600), m = Math.floor((d.uptime%3600)/60);
+    document.getElementById('sv-up').textContent = `${h}h ${m}m`;
+  }
+
+  if (d.logs && Array.isArray(d.logs)) {
+    const lb = document.getElementById('logsBody'); lb.innerHTML = '';
+    d.logs.reverse().forEach(log => {
+      const parts = log.split(' '); const t = parts.shift();
+      lb.innerHTML += `<div class="log-item"><span class="log-time">[${t}]</span> ${parts.join(' ')}</div>`;
+    });
+    if(!d.logs.length) lb.innerHTML = '<div class="log-item" style="color:var(--t3)">No logs available</div>';
+  }
+
+  if (d.schedule && document.activeElement?.type !== 'time' && document.activeElement?.type !== 'number' && document.activeElement?.type !== 'range') {
+    const s = d.schedule;
+    document.getElementById('schEn').checked = s.enabled;
+    document.getElementById('srTime').value = `${String(s.sunriseHour).padStart(2,'0')}:${String(s.sunriseMin).padStart(2,'0')}`;
+    document.getElementById('ssTime').value = `${String(s.sunsetHour).padStart(2,'0')}:${String(s.sunsetMin).padStart(2,'0')}`;
+    document.getElementById('ramp').value = s.rampMinutes;
+    setPkSl('pk-uv',    'pv-uv',    s.peakUvRed, 128, 0, 255);
+    setPkSl('pk-blue',  'pv-blue',  s.peakBlue,  0, 68, 255);
+    setPkSl('pk-white', 'pv-white', s.peakWhite, 255, 224, 102);
+    renderSch();
+  }
+}
+
+// ══════════════════════════════════════════
+//  UI ACTIONS
+// ══════════════════════════════════════════
+function tab(name) {
+  document.querySelectorAll('.tb').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('on'));
+  document.getElementById('tb-' + name).classList.add('on');
+  document.getElementById('pane-' + name).classList.add('on');
+  if (name === 'ctrl') { resizeCanvas('spdCanvas'); renderSpd(); }
+  if (name === 'sch')  { resizeCanvas('schCanvas'); renderSch(); }
+}
+
+function togglePower() {
+  globalPower = !globalPower;
+  const btn = document.getElementById('btnPwr');
+  if (globalPower) btn.classList.add('on'); else btn.classList.remove('on');
+  toast(globalPower ? 'Power ON' : 'Power OFF');
+  if (mqttClient && mqttClient.connected) {
+    mqttClient.publish(TOPIC_CMD, JSON.stringify({ cmd_type: 'power', on: globalPower }));
+  }
+}
+
+function setAuto() {
+  clearSc();
+  document.getElementById('btnAuto').className = 'on';
+  document.getElementById('btnManual').className = '';
+  document.getElementById('modeStatus').textContent = 'Schedule Active';
+  if (mqttClient && mqttClient.connected) mqttClient.publish(TOPIC_CMD, JSON.stringify({ cmd_type: 'auto' }));
+  toast('Auto schedule resumed');
+}
+
+function setManual() {
+  clearSc();
+  document.getElementById('btnAuto').className = '';
+  document.getElementById('btnManual').className = 'on';
+  document.getElementById('modeStatus').textContent = 'Manual Override';
+  if (mqttClient && mqttClient.connected) mqttClient.publish(TOPIC_CMD, JSON.stringify({ cmd_type: 'manual' }));
+  toast('Manual Mode Active');
+}
+
+function scene(name) {
+  const v = SCENES[name]; if (!v) return;
+  clearSc(); curSc = name; document.getElementById('sc-' + name)?.classList.add('on');
+  Object.entries(v).forEach(([ch,val]) => {
+    if (['uvRed','blueA','blueB','white'].includes(ch)) setSl(ch, val);
+  });
+  renderSpd();
+  if (mqttClient && mqttClient.connected) {
+    v.cmd_type = 'channels';
+    mqttClient.publish(TOPIC_CMD, JSON.stringify(v));
+    toast(name.charAt(0).toUpperCase() + name.slice(1) + ' applied');
+  }
+}
+function clearSc() { if (curSc) document.getElementById('sc-' + curSc)?.classList.remove('on'); curSc = null; }
+
+function saveCustomScene() {
+  const modal = document.getElementById('nameModal');
+  const input = document.getElementById('nmInput');
+  input.value = '';
+  modal.classList.add('on');
+  setTimeout(() => input.focus(), 100);
+}
+
+function closeNameModal() {
+  document.getElementById('nameModal').classList.remove('on');
+}
+
+function confirmCustomScene() {
+  const name = document.getElementById('nmInput').value.trim() || 'Custom';
+  closeNameModal();
+  const custom = {
+    name: name,
+    uvRed: parseInt(document.getElementById('sl-uvRed').value, 10),
+    blueA: parseInt(document.getElementById('sl-blueA').value, 10),
+    blueB: parseInt(document.getElementById('sl-blueB').value, 10),
+    white: parseInt(document.getElementById('sl-white').value, 10)
+  };
+  localStorage.setItem('customReefScene', JSON.stringify(custom));
+  SCENES['custom'] = custom;
+  document.getElementById('sc-custom-name').textContent = name;
+  toast('Custom Scene Saved');
+}
+
+function loadCustomSceneData() {
+  const saved = localStorage.getItem('customReefScene');
+  if (saved) {
+    try { 
+      const custom = JSON.parse(saved);
+      SCENES['custom'] = custom; 
+      if(custom.name) document.getElementById('sc-custom-name').textContent = custom.name;
+    } catch(e) {}
+  }
+}
+
+function loadCustomScene() {
+  if (SCENES['custom']) {
+    scene('custom');
+  } else {
+    toast('No Custom Scene Saved');
+  }
+}
+
+// ══════════════════════════════════════════
+//  SLIDERS
+// ══════════════════════════════════════════
+function initSliders() { document.querySelectorAll('input[data-ch]').forEach(sl => fillSl(sl, 0)); }
+function setSl(ch, raw) {
+  const sl = document.getElementById('sl-' + ch); if (!sl) return;
+  sl.value = raw;
+  document.getElementById('pct-' + ch).textContent = Math.round(raw / 255 * 100) + '%';
+  fillSl(sl, raw);
+}
+function fillSl(sl, val) {
+  const r = sl.dataset.r, g = sl.dataset.g, b = sl.dataset.b;
+  const pct = (val / 255) * 100;
+  sl.style.background = `linear-gradient(to right, rgba(${r},${g},${b},0.9) ${pct}%, var(--s3) ${pct}%)`;
+}
+function onSl(el) {
+  const ch = el.dataset.ch, val = +el.value;
+  document.getElementById('pct-' + ch).textContent = Math.round(val / 255 * 100) + '%';
+  fillSl(el, val); pend[ch] = val;
+  if (linked && (ch === 'blueA' || ch === 'blueB')) {
+    const other = ch === 'blueA' ? 'blueB' : 'blueA';
+    setSl(other, val); pend[other] = val;
+  }
+  clearSc(); renderSpd();
+}
+function flushCh() {
+  clearTimeout(sndT);
+  sndT = setTimeout(() => {
+    if (!Object.keys(pend).length) return;
+    const p = { cmd_type: 'channels', ...pend }; pend = {};
+    if (mqttClient && mqttClient.connected) mqttClient.publish(TOPIC_CMD, JSON.stringify(p));
+    
+    // Also update local cache so refresh keeps these slider values
+    localStorage.setItem('reefChannels', JSON.stringify({
+      uvRed: +document.getElementById('sl-uvRed').value,
+      blueA: +document.getElementById('sl-blueA').value,
+      blueB: +document.getElementById('sl-blueB').value,
+      white: +document.getElementById('sl-white').value
+    }));
+  }, 100);
+}
+function onLink() {
+  linked = document.getElementById('linkBlue').checked;
+  if (linked) { const av = +document.getElementById('sl-blueA').value; setSl('blueB', av); pend['blueB'] = av; flushCh(); }
+}
+
+// ══════════════════════════════════════════
+//  SCHEDULE
+// ══════════════════════════════════════════
+function initPeakSliders() {
+  setPkSl('pk-uv',   'pv-uv',   15,  128, 0, 255);
+  setPkSl('pk-blue', 'pv-blue', 100, 0, 68, 255);
+  setPkSl('pk-white','pv-white',25,  255, 224, 102);
+}
+function setPkSl(id, pvId, val, r, g, b) {
+  const el = document.getElementById(id); if (!el) return;
+  el.value = val; document.getElementById(pvId).textContent = val + '%';
+  el.style.background = `linear-gradient(to right, rgba(${r},${g},${b},0.85) ${val}%, var(--s3) ${val}%)`;
+}
+function onPk(el, pvId, r, g, b) {
+  document.getElementById(pvId).textContent = el.value + '%';
+  el.style.background = `linear-gradient(to right, rgba(${r},${g},${b},0.85) ${el.value}%, var(--s3) ${el.value}%)`;
+}
+function saveSch() {
+  const srT = document.getElementById('srTime').value.split(':');
+  const ssT = document.getElementById('ssTime').value.split(':');
+  const p = {
+    cmd_type: 'schedule', enabled: document.getElementById('schEn').checked,
+    sunriseHour: +srT[0], sunriseMin: +srT[1], sunsetHour: +ssT[0], sunsetMin: +ssT[1],
+    rampMinutes: +document.getElementById('ramp').value,
+    peakUvRed: +document.getElementById('pk-uv').value, peakBlue: +document.getElementById('pk-blue').value, peakWhite: +document.getElementById('pk-white').value,
+  };
+  
+  // Cache locally to prevent UI from forgetting if ESP is offline
+  localStorage.setItem('reefSchedule', JSON.stringify(p));
+
+  if (mqttClient && mqttClient.connected) {
+    mqttClient.publish(TOPIC_CMD, JSON.stringify(p));
+    const b = document.getElementById('savBtn'); b.textContent = 'Saved ✓'; b.classList.add('ok');
+    setTimeout(() => { b.textContent = 'Save Schedule'; b.classList.remove('ok'); }, 2000);
+    toast('Schedule saved');
+  } else { toast('Cloud Offline - Saved Locally'); }
+}
+
+function loadLocalState() {
+  // Load Schedule
+  const savedSch = localStorage.getItem('reefSchedule');
+  if (savedSch) {
+    try {
+      const s = JSON.parse(savedSch);
+      document.getElementById('schEn').checked = s.enabled;
+      document.getElementById('srTime').value = `${String(s.sunriseHour).padStart(2,'0')}:${String(s.sunriseMin).padStart(2,'0')}`;
+      document.getElementById('ssTime').value = `${String(s.sunsetHour).padStart(2,'0')}:${String(s.sunsetMin).padStart(2,'0')}`;
+      document.getElementById('ramp').value = s.rampMinutes;
+      setPkSl('pk-uv', 'pv-uv', s.peakUvRed, 128, 0, 255);
+      setPkSl('pk-blue', 'pv-blue', s.peakBlue, 0, 68, 255);
+      setPkSl('pk-white', 'pv-white', s.peakWhite, 255, 224, 102);
+    } catch(e) {}
+  }
+  
+  // Load Channels
+  const savedCh = localStorage.getItem('reefChannels');
+  if (savedCh) {
+    try {
+      const c = JSON.parse(savedCh);
+      if(c.uvRed !== undefined) setSl('uvRed', c.uvRed);
+      if(c.blueA !== undefined) setSl('blueA', c.blueA);
+      if(c.blueB !== undefined) setSl('blueB', c.blueB);
+      if(c.white !== undefined) setSl('white', c.white);
+    } catch(e) {}
+  }
+}
+
+// ══════════════════════════════════════════
+//  CANVAS
+// ══════════════════════════════════════════
+function resizeCanvas(id) { const c = document.getElementById(id); if (c && c.offsetWidth > 0) { c.width = c.offsetWidth; } }
+window.addEventListener('resize', () => { resizeCanvas('spdCanvas'); renderSpd(); resizeCanvas('schCanvas'); renderSch(); });
+
+function renderSpd() {
+  const cvs = document.getElementById('spdCanvas'); if (!cvs || cvs.width===0) return;
+  const ctx = cvs.getContext('2d'), W = cvs.width, H = cvs.height;
+  ctx.fillStyle = '#101010'; ctx.fillRect(0,0,W,H);
+  
+  const sg = ctx.createLinearGradient(0,0,W,0);
+  sg.addColorStop(0.00, 'rgba(90,0,180,0.09)'); sg.addColorStop(0.20, 'rgba(0,0,255,0.09)');
+  sg.addColorStop(0.34, 'rgba(0,180,200,0.07)'); sg.addColorStop(0.50, 'rgba(0,200,0,0.06)');
+  sg.addColorStop(0.65, 'rgba(220,220,0,0.07)'); sg.addColorStop(0.82, 'rgba(255,90,0,0.08)');
+  sg.addColorStop(1.00, 'rgba(180,0,0,0.09)');
+  ctx.fillStyle = sg; ctx.fillRect(0,0,W,H);
+
+  const G = (x,mu,sig,a) => a * Math.exp(-0.5*((x-mu)/sig)**2);
+  const uv = (+document.getElementById('sl-uvRed')?.value||0)/255;
+  const ba = (+document.getElementById('sl-blueA')?.value||0)/255;
+  const bb = (+document.getElementById('sl-blueB')?.value||0)/255;
+  const wh = (+document.getElementById('sl-white')?.value||0)/255;
+  
+  const chs = [
+    { f: wh, rgb:[255,224,102], spd: nm => G(nm,450,12,0.18)+G(nm,540,65,0.60)+G(nm,615,28,0.32) },
+    { f: bb, rgb:[0,153,255],   spd: nm => G(nm,455,18,1.0) },
+    { f: ba, rgb:[0,68,255],    spd: nm => G(nm,450,15,1.0) },
+    { f: uv, rgb:[128,0,255],   spd: nm => G(nm,395,13,1.0)+G(nm,660,22,0.68) },
+  ];
+  
+  let maxY=0.001;
+  for(let px=0; px<W; px+=2) { const nm = 380+(px/W)*340; let s=0; chs.forEach(c=>s+=c.spd(nm)*c.f); if(s>maxY) maxY=s; }
+  
+  chs.forEach(({f, rgb:[r,g,b], spd}) => {
+    if(f<0.01) return;
+    ctx.beginPath(); ctx.moveTo(0,H);
+    for(let px=0; px<=W; px+=2) { const nm = 380+(px/W)*340, y = H - (spd(nm)*f/maxY)*(H-15); ctx.lineTo(px,y); }
+    ctx.lineTo(W,H); ctx.closePath();
+    ctx.fillStyle = `rgba(${r},${g},${b},0.2)`; ctx.fill();
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.88)`; ctx.lineWidth=1.5; ctx.stroke();
+  });
+}
+
+function renderSch() {
+  const cvs = document.getElementById('schCanvas'); if (!cvs || cvs.width===0) return;
+  const ctx = cvs.getContext('2d'), W = cvs.width, H = cvs.height;
+  ctx.fillStyle = '#101010'; ctx.fillRect(0,0,W,H);
+  
+  const srT = document.getElementById('srTime')?.value.split(':') || ['07','00'];
+  const ssT = document.getElementById('ssTime')?.value.split(':') || ['20','00'];
+  const sr = (+srT[0]*60)+(+srT[1]), ss = (+ssT[0]*60)+(+ssT[1]);
+  const rm = +document.getElementById('ramp')?.value || 60;
+  
+  document.getElementById('st-sr').textContent = formatAMPM(document.getElementById('srTime').value);
+  document.getElementById('st-ss').textContent = formatAMPM(document.getElementById('ssTime').value);
+  document.getElementById('st-dur').textContent = ((ss-sr)/60).toFixed(1) + 'h';
+  
+  const puv = (+document.getElementById('pk-uv')?.value||0)/100;
+  const pbl = (+document.getElementById('pk-blue')?.value||0)/100;
+  const pwh = (+document.getElementById('pk-white')?.value||0)/100;
+  
+  const pw = W-16, ph = H-40;
+  const xOf = m => 10 + (m/1440)*pw;
+  const yOf = v => 18 + ph - v*ph;
+  
+  const iAt = (m, pk) => {
+    if(m<sr || m>=ss+rm) return 0;
+    if(m<sr+rm) return pk*(m-sr)/rm;
+    if(m<ss) return pk;
+    return pk*(1-(m-ss)/rm);
+  };
+  
+  ctx.strokeStyle = '#1A1A1A'; ctx.lineWidth=1;
+  [0, 0.5, 1].forEach(v => { const y=yOf(v); ctx.beginPath(); ctx.moveTo(10,y); ctx.lineTo(W-6,y); ctx.stroke(); });
+  
+  const curves = [ {pk:puv, c:'128,0,255'}, {pk:pbl, c:'0,68,255'}, {pk:pbl, c:'0,153,255'}, {pk:pwh, c:'255,224,102'} ];
+  curves.forEach(({pk,c}) => {
+    if(pk<0.01) return;
+    ctx.beginPath(); ctx.moveTo(xOf(0),yOf(0));
+    for(let i=0;i<=100;i++) { const m=(i/100)*1440; ctx.lineTo(xOf(m), yOf(iAt(m,pk))); }
+    ctx.lineTo(xOf(1440),yOf(0)); ctx.closePath();
+    ctx.fillStyle = `rgba(${c},0.09)`; ctx.fill();
+    ctx.strokeStyle = `rgba(${c},0.75)`; ctx.lineWidth=1.5; ctx.stroke();
+  });
+
+  ctx.font = '9px JetBrains Mono, monospace';
+  [0,6,12,18,24].forEach(h => {
+    const x = xOf(h*60); ctx.fillStyle = '#2A2A2A'; ctx.fillRect(x, 18+ph, 1, 4);
+    ctx.fillStyle = '#555'; const lbl = h===0?'0':h===24?'24':String(h).padStart(2,'0');
+    ctx.fillText(lbl, x-(h===0?0:ctx.measureText(lbl).width/2), H-4);
+  });
+}
+
+function toast(msg) {
+  const el = document.getElementById('toastEl'); el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2500);
+}
+</script>
+</body>
+</html>
