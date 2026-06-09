@@ -1,6 +1,6 @@
 /*
- * Creators Aquarium Reef Light Controller v1.1
- * ESP32 Firmware
+ * Creators Aquarium Reef Light Controller v1.2
+ * ESP32 Firmware — synced with Reef Light Web UI
  * Channels: UV+Red, Blue A, Blue B, White, Fan (full always)
  * Features: WiFi, Web Server, Sunrise/Sunset, Auto-reconnect, Cloud MQTT
  *
@@ -19,6 +19,14 @@
  *
  * current.* stores logical 0-255 (0=off, 255=full bright).
  * applyChannels() inverts before writing to hardware.
+ *
+ * MQTT Commands from Web UI (cmd_type field):
+ *   "get_state"  → ESP32 immediately publishes full state JSON
+ *   "channels"   → Set uvRed, blueA, blueB, white (0-255) + enables manual override
+ *   "schedule"   → Set all schedule fields + saves to NVS flash + applies immediately
+ *   "power"      → on: true/false — master power toggle
+ *   "auto"       → Disable manual override, resume sunrise/sunset schedule
+ *   "manual"     → Enable manual override flag (channels follow next "channels" cmd)
  */
 
 #include <WiFi.h>
@@ -35,6 +43,11 @@ const char* mqtt_server      = "broker.hivemq.com";
 const int   mqtt_port        = 1883;
 const char* mqtt_topic_cmd   = "creatorsreef/cmd/cr-849a2bf1-9c32-4d51-a719-21b9a8f4d91e";
 const char* mqtt_topic_state = "creatorsreef/state/cr-849a2bf1-9c32-4d51-a719-21b9a8f4d91e";
+
+// ─── MQTT BUFFER ────────────────────────────────────────────────────
+// State JSON can be 600-800 bytes; commands up to 200 bytes.
+// Set to 1024 to safely handle both without truncation.
+#define MQTT_BUFFER_SIZE 1024
 
 WiFiClient   espClient;
 PubSubClient mqttClient(espClient);
@@ -147,6 +160,7 @@ void savePrefs() {
   prefs.putUChar("peakBlue",    schedule.peakBlue);
   prefs.putUChar("peakWhite",   schedule.peakWhite);
   prefs.putUChar("peakUvRed",   schedule.peakUvRed);
+  prefs.putBool("power",        globalPower);
   prefs.end();
 }
 
@@ -161,6 +175,7 @@ void loadPrefs() {
   schedule.peakBlue    = prefs.getUChar("peakBlue",    85);
   schedule.peakWhite   = prefs.getUChar("peakWhite",   40);
   schedule.peakUvRed   = prefs.getUChar("peakUvRed",   25);
+  globalPower          = prefs.getBool("power",        true);
   prefs.end();
 }
 
@@ -185,7 +200,7 @@ void runSchedule() {
   float blueF = 0, whiteF = 0, uvRedF = 0;
 
   if (nowMins < sunriseMins || nowMins >= (sunsetMins + ramp)) {
-    // Night
+    // Night — all off
     blueF = whiteF = uvRedF = 0;
 
   } else if (nowMins < sunriseMins + ramp) {
@@ -256,6 +271,8 @@ String buildStateJson() {
   char timeBuf[20] = "N/A";
   if (hasTime) strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", &t);
 
+  // Build JSON manually to stay within MQTT_BUFFER_SIZE.
+  // Keep log strings short (trimmed to 30 chars each).
   String json = "{";
   json += "\"name\":\"" + deviceName + "\",";
   json += "\"uvRed\":"  + String(current.uvRed)  + ",";
@@ -274,7 +291,10 @@ String buildStateJson() {
     int idx = (logIndex + i) % MAX_LOGS;
     if (sysLogs[idx].length() > 0) {
       if (!firstLog) json += ",";
-      json += "\"" + sysLogs[idx] + "\"";
+      // Trim each log entry to 30 chars to keep payload tight
+      String entry = sysLogs[idx];
+      if (entry.length() > 30) entry = entry.substring(0, 30);
+      json += "\"" + entry + "\"";
       firstLog = false;
     }
   }
@@ -355,6 +375,9 @@ void handleOptions() {
 void publishState() {
   if (!mqttClient.connected()) return;
   String json = buildStateJson();
+  if (json.length() >= MQTT_BUFFER_SIZE) {
+    Serial.println("WARN: State JSON too large: " + String(json.length()) + " bytes");
+  }
   mqttClient.publish(mqtt_topic_state, json.c_str());
   lastMqttPublish = millis();
   stateChanged = false;
@@ -366,11 +389,15 @@ void handleMqttMessage(char* topic, byte* payload, unsigned int length) {
   msg[length] = '\0';
 
   JsonDocument doc;
-  if (deserializeJson(doc, msg)) return;
+  if (deserializeJson(doc, msg)) {
+    Serial.println("MQTT JSON parse error");
+    return;
+  }
   if (!doc["cmd_type"].is<String>()) return;
 
   String type = doc["cmd_type"].as<String>();
 
+  // ── channels: Set all 4 channel intensities (0-255), enables manual mode
   if (type == "channels") {
     manualOverride = true;
     if (doc["uvRed"].is<int>()) current.uvRed = (uint8_t)doc["uvRed"].as<int>();
@@ -380,6 +407,7 @@ void handleMqttMessage(char* topic, byte* payload, unsigned int length) {
     applyChannels();
     publishState();
 
+  // ── schedule: Update schedule fields, save to flash, apply immediately
   } else if (type == "schedule") {
     if (doc["enabled"].is<bool>())     schedule.enabled     = doc["enabled"].as<bool>();
     if (doc["sunriseHour"].is<int>())  schedule.sunriseHour = doc["sunriseHour"].as<int>();
@@ -391,21 +419,34 @@ void handleMqttMessage(char* topic, byte* payload, unsigned int length) {
     if (doc["peakWhite"].is<int>())    schedule.peakWhite   = doc["peakWhite"].as<int>();
     if (doc["peakUvRed"].is<int>())    schedule.peakUvRed   = doc["peakUvRed"].as<int>();
     savePrefs();
+    // Immediately disable manual override and run the new schedule
+    // so the lamp adjusts to the new settings right away
     manualOverride = false;
+    runSchedule();
+    addLog("Schedule updated");
     publishState();
 
+  // ── auto: Disable manual override, resume the auto schedule immediately
   } else if (type == "auto") {
     manualOverride = false;
     runSchedule();
     publishState();
+
+  // ── power: Master power toggle (on: true/false)
   } else if (type == "power") {
     if (doc["on"].is<bool>()) {
       globalPower = doc["on"].as<bool>();
+      savePrefs();
       applyChannels();
+      addLog(globalPower ? "Power ON" : "Power OFF");
       publishState();
     }
+
+  // ── get_state: Immediately publish full current state to UI
   } else if (type == "get_state") {
     publishState();
+
+  // ── manual: Flag manual override mode without changing channels yet
   } else if (type == "manual") {
     manualOverride = true;
     publishState();
@@ -439,15 +480,16 @@ void setup() {
   ledcAttach(PIN_BLUE_B, PWM_FREQ, PWM_RES);
   ledcAttach(PIN_WHITE,  PWM_FREQ, PWM_RES);
   ledcAttach(PIN_FAN,    PWM_FREQ, PWM_RES);
-  ledcWrite(PIN_FAN, 0);  // Active-low: 0 = full on
+  ledcWrite(PIN_FAN, 0);  // Active-low: 0 = full on (fan always running)
 
   allOff();
   loadPrefs();
   connectWifi();
 
+  // Set MQTT buffer to 1024 bytes to safely handle large state JSON payloads
   mqttClient.setServer(mqtt_server, mqtt_port);
   mqttClient.setCallback(handleMqttMessage);
-  mqttClient.setBufferSize(512);
+  mqttClient.setBufferSize(MQTT_BUFFER_SIZE);
 
   server.on("/status",   HTTP_GET,     handleStatus);
   server.on("/set",      HTTP_POST,    handleSetChannel);
@@ -458,7 +500,7 @@ void setup() {
   server.on("/auto",     HTTP_OPTIONS, handleOptions);
   server.begin();
 
-  Serial.println("Creators Aquarium Controller ready");
+  Serial.println("Creators Aquarium Controller v1.2 ready");
   Serial.println("http://" + WiFi.localIP().toString());
 }
 
@@ -490,7 +532,7 @@ void loop() {
     lastWifiCheck = millis();
   }
 
-  // MQTT
+  // MQTT reconnect + loop
   if (WiFi.status() == WL_CONNECTED) {
     if (!mqttClient.connected()) {
       static uint32_t lastMqttAttempt = 0;
