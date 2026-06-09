@@ -48,6 +48,7 @@ interface AppState {
   
   widgets: Record<string, boolean>; // active widgets
   widgetData: Record<string, WidgetData[]>;
+  customScenes: CustomScene[];
 
   connect: () => void;
   setMode: (mode: AppMode) => void;
@@ -60,7 +61,21 @@ interface AppState {
   saveSchedule: () => void;
   togglePower: () => void;
   showToast: (msg: string) => void;
+  saveCustomScene: (name: string) => void;
+  deleteCustomScene: (id: string) => void;
 }
+
+export interface CustomScene {
+  id: string;
+  name: string;
+  channels: {
+    uvRed: number;
+    blueA: number;
+    blueB: number;
+    white: number;
+  };
+}
+
 
 export const useStore = create<AppState>((set, get) => ({
   status: 'disconnected',
@@ -91,6 +106,7 @@ export const useStore = create<AppState>((set, get) => ({
   
   widgets: JSON.parse(localStorage.getItem('reef_widgets') || '{"ammonia": true, "nitrate": true, "salinity": false, "alkalinity": false, "calcium": false, "magnesium": false}'),
   widgetData: JSON.parse(localStorage.getItem('reef_widget_data') || '{}'),
+  customScenes: JSON.parse(localStorage.getItem('reef_custom_scenes') || '[]'),
 
   showToast: (msg) => {
     set({ toastMessage: msg });
@@ -286,6 +302,31 @@ export const useStore = create<AppState>((set, get) => ({
     set({ widgetData: next });
     localStorage.setItem('reef_widget_data', JSON.stringify(next));
     get().showToast(`Added reading for ${id}`);
+  },
+
+  saveCustomScene: (name) => {
+    const { channels, customScenes } = get();
+    const newScene = {
+      id: 'scene-' + Math.random().toString(16).substring(2, 10),
+      name: name.trim() || `Custom Scene ${customScenes.length + 1}`,
+      channels: {
+        uvRed: channels.uvRed,
+        blueA: channels.blueA,
+        blueB: channels.blueB,
+        white: channels.white
+      }
+    };
+    const next = [...customScenes, newScene];
+    set({ customScenes: next });
+    localStorage.setItem('reef_custom_scenes', JSON.stringify(next));
+    get().showToast(`Saved scene: ${newScene.name}`);
+  },
+
+  deleteCustomScene: (id) => {
+    const next = get().customScenes.filter(s => s.id !== id);
+    set({ customScenes: next });
+    localStorage.setItem('reef_custom_scenes', JSON.stringify(next));
+    get().showToast('Scene deleted');
   }
 }));
 

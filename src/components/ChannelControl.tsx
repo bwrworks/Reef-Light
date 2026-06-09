@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useStore } from '../store';
-import { Link, Unlink, Sun, Flame, Zap } from 'lucide-react';
+import { Link, Unlink, Sun, Flame, Zap, X } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface ChannelProps {
@@ -68,12 +69,20 @@ function ChannelSlider({ id, name, subName, colorClass, icon, disabled }: Channe
 }
 
 export function ChannelControl() {
-  const { channels, toggleLink, mode, setMode, setKelvin, kelvin } = useStore();
+  const { channels, toggleLink, mode, setMode, setKelvin, kelvin, saveCustomScene } = useStore();
+  const [isNamingOpen, setIsNamingOpen] = useState(false);
+  const [sceneName, setSceneName] = useState('');
+
+  const handleSave = () => {
+    saveCustomScene(sceneName);
+    setIsNamingOpen(false);
+    setSceneName('');
+  };
 
   return (
     <div className="flex flex-col gap-6">
       {/* Sub-mode Toggles */}
-      <div className="flex bg-[#0b0f1f] p-1 rounded-xl border border-border">
+      <div className="flex bg-[#121214] p-1 rounded-xl border border-border">
         <button
           onClick={() => setMode('manual')}
           className={clsx(
@@ -198,18 +207,68 @@ export function ChannelControl() {
           {/* Save Custom Scene Button */}
           <button
             onClick={() => {
-              localStorage.setItem('reef_custom_scene', JSON.stringify({
-                uvRed: channels.uvRed,
-                white: channels.white,
-                blueA: channels.blueA,
-                blueB: channels.blueB,
-              }));
-              useStore.getState().showToast('Saved current levels as Custom Scene! ⭐');
+              setSceneName('');
+              setIsNamingOpen(true);
             }}
-            className="w-full mt-2 py-3 bg-[#0b0f1f] border border-border hover:border-text-secondary text-text-primary rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 shadow-sm"
+            className="w-full mt-2 py-3 bg-[#121214] border border-border hover:border-text-secondary text-text-primary rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 shadow-sm"
           >
             Save current mix as Custom Scene ⭐
           </button>
+
+          {/* Naming Modal Dialog */}
+          {isNamingOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <div 
+                className="absolute inset-0 bg-black/80 transition-opacity duration-200" 
+                onClick={() => setIsNamingOpen(false)}
+              />
+              <div className="bg-[#0B0B0C] border border-[#1C1C1E] rounded-3xl p-5 w-full max-w-[320px] flex flex-col gap-4 shadow-2xl relative z-10 animate-fade-in">
+                <div className="flex justify-between items-center border-b border-border/40 pb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">
+                    Save Custom Scene
+                  </span>
+                  <button 
+                    onClick={() => setIsNamingOpen(false)}
+                    className="text-text-secondary hover:text-text-primary"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[9px] uppercase tracking-widest font-bold text-text-secondary">
+                    Scene Name
+                  </label>
+                  <input
+                    type="text"
+                    value={sceneName}
+                    onChange={(e) => setSceneName(e.target.value)}
+                    placeholder="e.g. My Sunset Glow"
+                    className="w-full bg-[#121214] border border-border rounded-xl px-3.5 py-2.5 text-xs text-text-primary outline-none focus:border-text-secondary"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSave();
+                    }}
+                  />
+                </div>
+
+                <div className="flex gap-3 mt-2">
+                  <button
+                    onClick={() => setIsNamingOpen(false)}
+                    className="flex-1 py-2.5 bg-[#0b0b0c] border border-border text-text-secondary hover:text-text-primary hover:border-border rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 py-2.5 bg-accent-blue text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md hover:bg-accent-blue/90"
+                  >
+                    Save Scene
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

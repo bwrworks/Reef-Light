@@ -4,15 +4,17 @@ import { SplashOverlay } from './components/SplashOverlay';
 import { DeviceModal } from './components/DeviceModal';
 import { WidgetDashboard } from './components/WidgetDashboard';
 import { LogsDrawer } from './components/LogsDrawer';
+import { SPDChart } from './components/SPDChart';
 import { 
   Info, Power, Play, Moon, Sun, Wind, CloudRain, 
-  Sliders, CheckCircle, Flame
+  CheckCircle, Flame
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
 function App() {
   const { 
-    status, connect, power, togglePower, toastMessage, showToast, channels, mqttClient 
+    status, connect, power, togglePower, toastMessage, showToast, channels, mqttClient,
+    customScenes, deleteCustomScene
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'devices'>('dashboard');
@@ -279,55 +281,51 @@ function App() {
                     <span className="text-[9px] uppercase tracking-wider font-bold text-text-secondary">Storm</span>
                   </button>
 
-                  {/* Custom Preset */}
-                  <button 
-                    onClick={handleRecallCustom}
-                    className="flex flex-col items-center gap-1.5 flex-shrink-0"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-[#0b0b0c] border border-border hover:border-text-primary flex items-center justify-center text-yellow-500 transition-all shadow-md">
-                      <span className="text-sm font-bold">⭐</span>
-                    </div>
-                    <span className="text-[9px] uppercase tracking-wider font-bold text-text-secondary">Custom</span>
-                  </button>
+                  {/* Custom Scenes dynamically loaded */}
+                  {customScenes.length > 0 ? (
+                    customScenes.map((scene) => (
+                      <div key={scene.id} className="relative group flex flex-col items-center gap-1.5 flex-shrink-0">
+                        {/* Delete button (small "x" at top-right of the circle) */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteCustomScene(scene.id);
+                          }}
+                          className="absolute -top-1 -right-1 z-20 w-4 h-4 bg-status-error hover:bg-status-error/85 rounded-full flex items-center justify-center text-white text-[8px] font-black shadow-md transition-all opacity-0 group-hover:opacity-100"
+                          title="Delete Scene"
+                        >
+                          ✕
+                        </button>
+                        <button 
+                          onClick={() => triggerPreset(scene.name, scene.channels)}
+                          className="flex flex-col items-center gap-1.5"
+                        >
+                          <div className="w-12 h-12 rounded-full bg-[#0b0b0c] border border-border hover:border-text-primary flex items-center justify-center text-yellow-500 transition-all shadow-md">
+                            <span className="text-sm font-bold">⭐</span>
+                          </div>
+                          <span className="text-[9px] uppercase tracking-wider font-bold text-text-secondary max-w-[56px] truncate text-center leading-tight">
+                            {scene.name}
+                          </span>
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    /* Default Custom Button when empty */
+                    <button 
+                      onClick={handleRecallCustom}
+                      className="flex flex-col items-center gap-1.5 flex-shrink-0"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-[#0b0b0c] border border-border hover:border-text-primary flex items-center justify-center text-yellow-500/50 transition-all shadow-md">
+                        <span className="text-sm font-bold">⭐</span>
+                      </div>
+                      <span className="text-[9px] uppercase tracking-wider font-bold text-text-secondary">Custom</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* Speci-intensity Widget */}
-              <div className="bg-[#0b0b0c] border border-border rounded-2xl p-4 shadow-lg flex flex-col justify-between min-h-[120px]">
-                <div className="flex justify-between items-start">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] text-accent-cyan uppercase tracking-widest font-bold">Lighting Spectrum</span>
-                    <span className="font-display font-bold text-xs text-text-primary mt-0.5">Current Intensities</span>
-                  </div>
-                  <button 
-                    onClick={() => setIsDeviceModalOpen(true)}
-                    className="p-1.5 rounded-lg bg-[#121214] hover:bg-[#1c1c1e] border border-border/80 text-text-secondary hover:text-text-primary transition-all flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider"
-                  >
-                    <Sliders size={10} />
-                    Edit
-                  </button>
-                </div>
-
-                <div className="flex items-end justify-between mt-3 px-1">
-                  {/* Channels visual bar columns */}
-                  {[
-                    { label: 'UV/Red', val: channels.uvRed, color: 'bg-accent-uv' },
-                    { label: 'White', val: channels.white, color: 'bg-accent-white' },
-                    { label: 'Blue A', val: channels.blueA, color: 'bg-accent-blue' },
-                    { label: 'Blue B', val: channels.blueB, color: 'bg-[#06b6d4]' },
-                  ].map(c => {
-                    const h = Math.max(8, Math.round((c.val / 255) * 40));
-                    return (
-                      <div key={c.label} className="flex flex-col items-center gap-1.5">
-                        <div className="w-4.5 h-[40px] bg-bg-base/60 border border-border/20 rounded-md flex items-end justify-center overflow-hidden">
-                          <div className={clsx("w-full transition-all duration-300", c.color)} style={{ height: `${h}px` }} />
-                        </div>
-                        <span className="text-[8px] font-mono text-text-secondary">{Math.round((c.val / 255) * 100)}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <SPDChart isHome={true} onEditClick={() => setIsDeviceModalOpen(true)} />
 
               {/* Water Parameters Log Dashboard widget */}
               <WidgetDashboard />

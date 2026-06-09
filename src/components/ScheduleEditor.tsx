@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { useStore } from '../store';
-import { Save, AlertCircle } from 'lucide-react';
+import { Save, AlertCircle, Sparkles } from 'lucide-react';
 
 export function ScheduleEditor() {
-  const { schedule, updateSchedule, saveSchedule } = useStore();
+  const { schedule, updateSchedule, saveSchedule, showToast } = useStore();
   const svgRef = useRef<SVGSVGElement>(null);
   const [activeHandle, setActiveHandle] = useState<'sunrise' | 'sunset' | 'peakBlue' | 'peakWhite' | 'peakUvRed' | null>(null);
 
@@ -70,7 +70,10 @@ export function ScheduleEditor() {
     const relY = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
 
     const dragMins = Math.round(relX * 1440);
-    const dragPct = Math.round((1 - relY) * 100);
+    
+    // Corrected vertical calculation to prevent jumping on drag start
+    const dragPct = Math.round(((150 - relY * 160) / 140) * 100);
+    const safeDragPct = Math.max(0, Math.min(100, dragPct));
 
     if (activeHandle === 'sunrise') {
       const newMins = Math.min(dragMins, ssStart - schedule.rampMinutes - 30);
@@ -81,11 +84,11 @@ export function ScheduleEditor() {
       const time = minsToTime(newMins);
       updateSchedule({ sunsetHour: time.hour, sunsetMin: time.min });
     } else if (activeHandle === 'peakBlue') {
-      updateSchedule({ peakBlue: Math.max(0, Math.min(100, dragPct)) });
+      updateSchedule({ peakBlue: safeDragPct });
     } else if (activeHandle === 'peakWhite') {
-      updateSchedule({ peakWhite: Math.max(0, Math.min(100, dragPct)) });
+      updateSchedule({ peakWhite: safeDragPct });
     } else if (activeHandle === 'peakUvRed') {
-      updateSchedule({ peakUvRed: Math.max(0, Math.min(100, dragPct)) });
+      updateSchedule({ peakUvRed: safeDragPct });
     }
   };
 
@@ -112,6 +115,12 @@ export function ScheduleEditor() {
     }
   };
 
+  // Preset loading handler
+  const loadPreset = (name: string, p: { sunriseHour: number; sunriseMin: number; sunsetHour: number; sunsetMin: number; rampMinutes: number; peakUvRed: number; peakBlue: number; peakWhite: number }) => {
+    updateSchedule(p);
+    showToast(`Loaded Schedule Preset: ${name}`);
+  };
+
   // Generate dropdown options
   const hoursOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const minutesOptions = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
@@ -126,15 +135,58 @@ export function ScheduleEditor() {
   const srParts = get12hParts(schedule.sunriseHour, schedule.sunriseMin);
   const ssParts = get12hParts(schedule.sunsetHour, schedule.sunsetMin);
 
+  const presets = [
+    { name: 'Growth', sunriseHour: 8, sunriseMin: 0, sunsetHour: 20, sunsetMin: 0, rampMinutes: 60, peakUvRed: 50, peakBlue: 90, peakWhite: 40 },
+    { name: 'Deep Blue', sunriseHour: 7, sunriseMin: 0, sunsetHour: 21, sunsetMin: 0, rampMinutes: 90, peakUvRed: 35, peakBlue: 95, peakWhite: 15 },
+    { name: 'Shallow', sunriseHour: 9, sunriseMin: 0, sunsetHour: 19, sunsetMin: 0, rampMinutes: 60, peakUvRed: 25, peakBlue: 70, peakWhite: 60 },
+    { name: 'Acclimate', sunriseHour: 8, sunriseMin: 0, sunsetHour: 20, sunsetMin: 0, rampMinutes: 120, peakUvRed: 15, peakBlue: 45, peakWhite: 20 }
+  ];
+
   return (
-    <div className="flex flex-col gap-6 select-none">
+    <div className="flex flex-col gap-6 select-none text-left">
+      
+      {/* Schedule Presets Selection Block */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-1.5 px-0.5">
+          <Sparkles size={12} className="text-accent-uv" />
+          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">
+            Schedule Presets
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {presets.map((p) => {
+            const isMatch = 
+              schedule.sunriseHour === p.sunriseHour &&
+              schedule.sunsetHour === p.sunsetHour &&
+              schedule.rampMinutes === p.rampMinutes &&
+              schedule.peakBlue === p.peakBlue &&
+              schedule.peakWhite === p.peakWhite &&
+              schedule.peakUvRed === p.peakUvRed;
+            return (
+              <button
+                key={p.name}
+                type="button"
+                onClick={() => loadPreset(p.name, p)}
+                className={`py-2.5 px-1 text-[9px] font-bold uppercase tracking-wider rounded-xl border transition-all ${
+                  isMatch 
+                    ? "bg-accent-uv border-accent-uv text-white shadow-sm font-black" 
+                    : "bg-[#0b0b0c] border-[#1C1C1E] text-text-secondary hover:text-text-primary hover:border-text-secondary"
+                }`}
+              >
+                {p.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* SVG Chart Container */}
-      <div className="bg-[#0b0f1f] border border-border rounded-2xl p-4 shadow-lg relative overflow-hidden">
+      <div className="bg-bg-card border border-border rounded-2xl p-4 shadow-lg relative overflow-hidden">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-text-primary uppercase tracking-widest">
             24H Cycle Graph
           </span>
-          <span className="text-[10px] text-text-secondary uppercase font-semibold">
+          <span className="text-[9px] text-text-secondary uppercase tracking-wider font-semibold">
             Drag nodes to edit
           </span>
         </div>
@@ -142,7 +194,7 @@ export function ScheduleEditor() {
         <svg
           ref={svgRef}
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="w-full h-auto cursor-crosshair"
+          className="w-full h-auto cursor-crosshair overflow-visible"
           onMouseMove={handleMouseMove}
           onTouchMove={handleMouseMove}
           onMouseLeave={handleMouseUp}
@@ -157,7 +209,7 @@ export function ScheduleEditor() {
               y1={10}
               x2={getX(h * 60)}
               y2={svgHeight - 10}
-              stroke="rgba(26, 36, 61, 0.4)"
+              stroke="rgba(139, 92, 246, 0.15)"
               strokeDasharray="2 3"
             />
           ))}
@@ -165,7 +217,7 @@ export function ScheduleEditor() {
           {/* Fill curves */}
           <path
             d={`${makePath(pointsBlue)} L ${getX(1440)} ${getY(0)} L 0 ${getY(0)} Z`}
-            fill="url(#blueGrad)"
+            fill="url(#violetGrad)"
             opacity="0.12"
           />
           <path
@@ -175,9 +227,9 @@ export function ScheduleEditor() {
           />
 
           {/* Stroke curves */}
-          <path d={makePath(pointsBlue)} fill="none" stroke="#2563EB" strokeWidth="2.5" />
+          <path d={makePath(pointsBlue)} fill="none" stroke="#8B5CF6" strokeWidth="2.5" />
           <path d={makePath(pointsWhite)} fill="none" stroke="#F3F4F6" strokeWidth="2" strokeDasharray="3 3" />
-          <path d={makePath(pointsUvRed)} fill="none" stroke="#8B5CF6" strokeWidth="2.5" />
+          <path d={makePath(pointsUvRed)} fill="none" stroke="#EC4899" strokeWidth="2.5" />
 
           {/* Draggable handles */}
           {/* Sunrise Start Handle */}
@@ -185,10 +237,11 @@ export function ScheduleEditor() {
             cx={getX(srStart)}
             cy={getY(0)}
             r="8"
-            fill="#2563EB"
+            fill="#8B5CF6"
             stroke="white"
             strokeWidth="1.5"
-            className="hover:scale-125 transition-transform"
+            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+            className="hover:scale-125 transition-transform duration-150 cursor-grab active:cursor-grabbing"
             onMouseDown={() => handleMouseDown('sunrise')}
             onTouchStart={() => handleMouseDown('sunrise')}
           />
@@ -201,7 +254,8 @@ export function ScheduleEditor() {
             fill="#8B5CF6"
             stroke="white"
             strokeWidth="1.5"
-            className="hover:scale-125 transition-transform"
+            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+            className="hover:scale-125 transition-transform duration-150 cursor-grab active:cursor-grabbing"
             onMouseDown={() => handleMouseDown('sunset')}
             onTouchStart={() => handleMouseDown('sunset')}
           />
@@ -211,10 +265,11 @@ export function ScheduleEditor() {
             cx={getX((srEnd + ssStart) / 2)}
             cy={getY(schedule.peakBlue)}
             r="7"
-            fill="#2563EB"
+            fill="#8B5CF6"
             stroke="white"
             strokeWidth="1"
-            className="hover:scale-125 transition-transform"
+            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+            className="hover:scale-125 transition-transform duration-150 cursor-grab active:cursor-grabbing"
             onMouseDown={() => handleMouseDown('peakBlue')}
             onTouchStart={() => handleMouseDown('peakBlue')}
           />
@@ -227,7 +282,8 @@ export function ScheduleEditor() {
             fill="#F3F4F6"
             stroke="white"
             strokeWidth="1"
-            className="hover:scale-125 transition-transform"
+            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+            className="hover:scale-125 transition-transform duration-150 cursor-grab active:cursor-grabbing"
             onMouseDown={() => handleMouseDown('peakWhite')}
             onTouchStart={() => handleMouseDown('peakWhite')}
           />
@@ -237,22 +293,23 @@ export function ScheduleEditor() {
             cx={getX((srEnd + ssStart) / 2 + 30)}
             cy={getY(schedule.peakUvRed)}
             r="7"
-            fill="#8B5CF6"
+            fill="#EC4899"
             stroke="white"
             strokeWidth="1"
-            className="hover:scale-125 transition-transform"
+            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+            className="hover:scale-125 transition-transform duration-150 cursor-grab active:cursor-grabbing"
             onMouseDown={() => handleMouseDown('peakUvRed')}
             onTouchStart={() => handleMouseDown('peakUvRed')}
           />
 
           {/* Defs for gradients */}
           <defs>
-            <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2563EB" />
+            <linearGradient id="violetGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#8B5CF6" />
               <stop offset="100%" stopColor="transparent" />
             </linearGradient>
             <linearGradient id="uvRedGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#8B5CF6" />
+              <stop offset="0%" stopColor="#EC4899" />
               <stop offset="100%" stopColor="transparent" />
             </linearGradient>
           </defs>
@@ -271,8 +328,8 @@ export function ScheduleEditor() {
       {/* Settings Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Sunrise Card */}
-        <div className="bg-bg-card border border-border rounded-xl p-4">
-          <span className="text-[10px] text-accent-blue font-bold uppercase tracking-widest block mb-3">
+        <div className="bg-bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
+          <span className="text-[10px] text-accent-uv font-bold uppercase tracking-widest block">
             Sunrise Settings
           </span>
           <div className="flex flex-col gap-3">
@@ -283,16 +340,16 @@ export function ScheduleEditor() {
                 <select
                   value={srParts.h12}
                   onChange={(e) => handleTimeChange('sunrise', parseInt(e.target.value), srParts.min, srParts.period as 'AM' | 'PM')}
-                  className="bg-bg-base border border-border rounded px-2 py-1 text-xs text-text-primary outline-none"
+                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
                 >
                   {hoursOptions.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
-                <span className="text-text-secondary">:</span>
+                <span className="text-text-secondary font-bold">:</span>
                 {/* Min */}
                 <select
                   value={srParts.min}
                   onChange={(e) => handleTimeChange('sunrise', srParts.h12, parseInt(e.target.value), srParts.period as 'AM' | 'PM')}
-                  className="bg-bg-base border border-border rounded px-2 py-1 text-xs text-text-primary outline-none"
+                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
                 >
                   {minutesOptions.map(m => <option key={m} value={m}>{m < 10 ? `0${m}` : m}</option>)}
                 </select>
@@ -300,7 +357,7 @@ export function ScheduleEditor() {
                 <select
                   value={srParts.period}
                   onChange={(e) => handleTimeChange('sunrise', srParts.h12, srParts.min, e.target.value as 'AM' | 'PM')}
-                  className="bg-bg-base border border-border rounded px-2 py-1 text-xs text-text-primary outline-none"
+                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
                 >
                   <option value="AM">AM</option>
                   <option value="PM">PM</option>
@@ -320,15 +377,20 @@ export function ScheduleEditor() {
                 step="15"
                 value={schedule.rampMinutes}
                 onChange={(e) => updateSchedule({ rampMinutes: parseInt(e.target.value) })}
-                className="w-full"
+                className="w-full cursor-pointer"
+                style={{
+                  background: 'linear-gradient(to right, #8B5CF6, #c084fc)',
+                  height: '6px',
+                  borderRadius: '9999px',
+                }}
               />
             </div>
           </div>
         </div>
 
         {/* Sunset Card */}
-        <div className="bg-bg-card border border-border rounded-xl p-4">
-          <span className="text-[10px] text-accent-uv font-bold uppercase tracking-widest block mb-3">
+        <div className="bg-bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
+          <span className="text-[10px] text-accent-uv font-bold uppercase tracking-widest block">
             Sunset Settings
           </span>
           <div className="flex flex-col gap-3">
@@ -339,16 +401,16 @@ export function ScheduleEditor() {
                 <select
                   value={ssParts.h12}
                   onChange={(e) => handleTimeChange('sunset', parseInt(e.target.value), ssParts.min, ssParts.period as 'AM' | 'PM')}
-                  className="bg-bg-base border border-border rounded px-2 py-1 text-xs text-text-primary outline-none"
+                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
                 >
                   {hoursOptions.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
-                <span className="text-text-secondary">:</span>
+                <span className="text-text-secondary font-bold">:</span>
                 {/* Min */}
                 <select
                   value={ssParts.min}
                   onChange={(e) => handleTimeChange('sunset', ssParts.h12, parseInt(e.target.value), ssParts.period as 'AM' | 'PM')}
-                  className="bg-bg-base border border-border rounded px-2 py-1 text-xs text-text-primary outline-none"
+                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
                 >
                   {minutesOptions.map(m => <option key={m} value={m}>{m < 10 ? `0${m}` : m}</option>)}
                 </select>
@@ -356,7 +418,7 @@ export function ScheduleEditor() {
                 <select
                   value={ssParts.period}
                   onChange={(e) => handleTimeChange('sunset', ssParts.h12, ssParts.min, e.target.value as 'AM' | 'PM')}
-                  className="bg-bg-base border border-border rounded px-2 py-1 text-xs text-text-primary outline-none"
+                  className="bg-[#121214] border border-[#1C1C1E] rounded-lg px-2 py-1 text-xs text-text-primary outline-none focus:border-text-secondary cursor-pointer"
                 >
                   <option value="AM">AM</option>
                   <option value="PM">PM</option>
@@ -368,7 +430,7 @@ export function ScheduleEditor() {
               <span>Sunset Ramp Time</span>
               <span className="text-text-primary font-mono">{schedule.rampMinutes} mins</span>
             </div>
-            <div className="text-[10px] text-text-secondary italic flex items-center gap-1.5 bg-bg-base/40 p-2 rounded border border-border/20">
+            <div className="text-[10px] text-text-secondary italic flex items-center gap-1.5 bg-[#121214] p-2.5 rounded-xl border border-border/40">
               <AlertCircle size={12} className="text-text-secondary flex-shrink-0" />
               <span>Sunset ramp mirrors sunrise duration.</span>
             </div>
@@ -386,7 +448,7 @@ export function ScheduleEditor() {
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between text-xs text-text-secondary font-medium">
               <span className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-accent-uv"></span>
+                <span className="w-2 h-2 rounded-full bg-pink-500"></span>
                 UV + Red
               </span>
               <span className="font-mono text-text-primary">{schedule.peakUvRed}%</span>
@@ -397,7 +459,12 @@ export function ScheduleEditor() {
               max="100"
               value={schedule.peakUvRed}
               onChange={(e) => updateSchedule({ peakUvRed: parseInt(e.target.value) })}
-              className="w-full"
+              className="w-full cursor-pointer"
+              style={{
+                background: 'linear-gradient(to right, #EC4899, #f472b6)',
+                height: '6px',
+                borderRadius: '9999px',
+              }}
             />
           </div>
 
@@ -405,7 +472,7 @@ export function ScheduleEditor() {
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between text-xs text-text-secondary font-medium">
               <span className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-accent-blue"></span>
+                <span className="w-2 h-2 rounded-full bg-accent-uv"></span>
                 Royal Blue
               </span>
               <span className="font-mono text-text-primary">{schedule.peakBlue}%</span>
@@ -416,7 +483,12 @@ export function ScheduleEditor() {
               max="100"
               value={schedule.peakBlue}
               onChange={(e) => updateSchedule({ peakBlue: parseInt(e.target.value) })}
-              className="w-full"
+              className="w-full cursor-pointer"
+              style={{
+                background: 'linear-gradient(to right, #8B5CF6, #a78bfa)',
+                height: '6px',
+                borderRadius: '9999px',
+              }}
             />
           </div>
 
@@ -435,7 +507,12 @@ export function ScheduleEditor() {
               max="100"
               value={schedule.peakWhite}
               onChange={(e) => updateSchedule({ peakWhite: parseInt(e.target.value) })}
-              className="w-full"
+              className="w-full cursor-pointer"
+              style={{
+                background: 'linear-gradient(to right, #E5E7EB, #F3F4F6)',
+                height: '6px',
+                borderRadius: '9999px',
+              }}
             />
           </div>
         </div>
@@ -443,8 +520,9 @@ export function ScheduleEditor() {
 
       {/* Save Button */}
       <button
+        type="button"
         onClick={saveSchedule}
-        className="w-full py-4 bg-accent-blue text-white rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg hover:shadow-2xl shadow-accent-blue/25 hover:bg-accent-blue/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+        className="w-full py-4 bg-accent-uv text-white rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg hover:shadow-2xl shadow-accent-uv/25 hover:bg-[#7c4fe3] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
       >
         <Save size={16} />
         Save Schedule to Device
